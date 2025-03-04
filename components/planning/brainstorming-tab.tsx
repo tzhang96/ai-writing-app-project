@@ -11,6 +11,11 @@ import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AiScribePopup, useAiScribe } from '@/components/ai-scribe-popup';
+import { useToast } from '@/hooks/use-toast';
+import { useFirebase } from '@/lib/firebase-context';
+import { processNote } from '@/lib/services/ai';
+import { useProjects } from '@/lib/project-context';
+import { FirebaseError } from 'firebase/app';
 
 interface Brainstorm {
   id: string;
@@ -24,7 +29,7 @@ interface BrainstormCardProps {
   brainstorm: Brainstorm;
   onUpdate: (id: string, title: string, content: string) => void;
   onDelete: (id: string) => void;
-  onGenerate: (id: string) => void;
+  onProcess: (id: string) => void;
   aiScribeEnabled: boolean;
 }
 
@@ -32,10 +37,11 @@ function formatDate(date: Date): string {
   return format(date, 'MMM d, h:mm a');
 }
 
-function BrainstormCard({ brainstorm, onUpdate, onDelete, onGenerate, aiScribeEnabled }: BrainstormCardProps) {
+function BrainstormCard({ brainstorm, onUpdate, onDelete, onProcess, aiScribeEnabled }: BrainstormCardProps) {
   const [editTitle, setEditTitle] = useState(brainstorm.title);
   const [editContent, setEditContent] = useState(brainstorm.content);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const {
@@ -116,10 +122,11 @@ function BrainstormCard({ brainstorm, onUpdate, onDelete, onGenerate, aiScribeEn
             variant="default" 
             size="sm" 
             className="h-7 text-xs bg-black hover:bg-black/90 text-white"
-            onClick={() => onGenerate(brainstorm.id)}
+            onClick={() => onProcess(brainstorm.id)}
+            disabled={isProcessing}
           >
             <Wand2 className="h-3 w-3 mr-1" />
-            Generate...
+            Process
           </Button>
         </CardFooter>
       </div>
@@ -152,6 +159,9 @@ export function BrainstormingTab({ aiScribeEnabled }: BrainstormingTabProps) {
     },
   ]);
   const [filterTerm, setFilterTerm] = useState('');
+  const { toast } = useToast();
+  const { user } = useFirebase();
+  const { activeProject } = useProjects();
 
   const addBrainstorm = () => {
     const now = new Date();
@@ -180,9 +190,53 @@ export function BrainstormingTab({ aiScribeEnabled }: BrainstormingTabProps) {
     setBrainstorms(brainstorms.filter(item => item.id !== id));
   };
   
-  const generateBrainstorm = (id: string) => {
-    // This will be implemented later to connect with the AI
-    console.log(`Generate content for brainstorm ${id}`);
+  const processBrainstorm = async (id: string) => {
+    const brainstorm = brainstorms.find(b => b.id === id);
+    if (!brainstorm || !brainstorm.content.trim()) {
+      toast({
+        title: "Error",
+        description: "Please add some content to your brainstorm before processing.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      console.log('Attempting to process note:', {
+        content: brainstorm.content
+      });
+      
+      const result = await processNote({
+        content: brainstorm.content
+      });
+
+      console.log('Processed note result:', result);
+      
+      // Show a more detailed success message
+      const entityCounts = {
+        characters: result.data.extractedEntities.characters.length,
+        locations: result.data.extractedEntities.locations.length,
+        events: result.data.extractedEntities.events.length
+      };
+      
+      toast({
+        title: "Success",
+        description: `Processed and organized: ${entityCounts.characters} characters, ${entityCounts.locations} locations, and ${entityCounts.events} events.`,
+      });
+    } catch (error) {
+      console.error('Error processing note:', error);
+      const fbError = error as FirebaseError;
+      console.error('Error details:', {
+        code: fbError.code,
+        message: fbError.message,
+        customData: fbError.customData
+      });
+      toast({
+        title: "Error",
+        description: "Failed to process your brainstorm. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const filteredBrainstorms = brainstorms.filter(item => 
@@ -220,7 +274,7 @@ export function BrainstormingTab({ aiScribeEnabled }: BrainstormingTabProps) {
                     brainstorm={item}
                     onUpdate={updateBrainstorm}
                     onDelete={deleteBrainstorm}
-                    onGenerate={generateBrainstorm}
+                    onProcess={processBrainstorm}
                     aiScribeEnabled={aiScribeEnabled}
                   />
                 ))
