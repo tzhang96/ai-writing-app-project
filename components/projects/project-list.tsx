@@ -11,20 +11,17 @@ import {
   CardTitle 
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Plus, Trash2 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, MoreVertical, Pencil, Trash2, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { ProjectHeader } from '@/components/projects/project-header';
+import { ProjectDialog, ProjectFormData } from '@/components/projects/project-dialog';
 
 interface Project {
   id: string;
@@ -61,9 +58,10 @@ const sampleProjects: Project[] = [
 
 export function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [newProject, setNewProject] = useState({ title: '', description: '' });
-  const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   
   // Load projects from localStorage on component mount
   useEffect(() => {
@@ -101,19 +99,17 @@ export function ProjectList() {
     }
   }, [projects, isLoading]);
   
-  const handleCreateProject = () => {
-    if (newProject.title.trim() === '') return;
-    
+  const handleCreateProject = (data: ProjectFormData) => {
     const project: Project = {
       id: `project-${Date.now()}`,
-      title: newProject.title,
-      description: newProject.description,
-      lastEdited: new Date()
+      title: data.title,
+      description: data.description,
+      lastEdited: new Date(),
+      coverImage: data.coverImage
     };
     
     setProjects([...projects, project]);
-    setNewProject({ title: '', description: '' });
-    setOpen(false);
+    setCreateDialogOpen(false);
   };
   
   const handleDeleteProject = (id: string, e: React.MouseEvent) => {
@@ -122,6 +118,41 @@ export function ProjectList() {
     setProjects(projects.filter(project => project.id !== id));
   };
   
+  const handleEditProject = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const project = projects.find(p => p.id === id);
+    if (project) {
+      setEditingProject(project);
+      setEditDialogOpen(true);
+    }
+  };
+  
+  const handleUpdateProject = (data: ProjectFormData) => {
+    if (!editingProject) return;
+    
+    setProjects(projects.map(project => 
+      project.id === editingProject.id
+        ? {
+            ...project,
+            title: data.title,
+            description: data.description,
+            coverImage: data.coverImage,
+            lastEdited: new Date()
+          }
+        : project
+    ));
+    
+    setEditDialogOpen(false);
+    setEditingProject(null);
+  };
+  
+  const handleExportProject = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // TODO: Implement export functionality
+  };
+
   return (
     <div className="flex flex-col h-screen">
       <ProjectHeader />
@@ -130,58 +161,25 @@ export function ProjectList() {
           <h2 className="text-2xl font-semibold mb-6">Your Projects</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* New Project Card */}
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Card className="h-64 flex flex-col items-center justify-center cursor-pointer hover:bg-accent/40 transition-colors border-dashed border-2">
-                  <CardContent className="flex flex-col items-center justify-center p-6">
-                    <Plus className="h-12 w-12 text-muted-foreground mb-4" />
-                    <CardTitle className="text-xl text-muted-foreground">Create New Project</CardTitle>
-                  </CardContent>
-                </Card>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create New Project</DialogTitle>
-                  <DialogDescription>
-                    Give your project a name and description to get started.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="projectTitle">Project Title</Label>
-                    <Input 
-                      id="projectTitle" 
-                      placeholder="Enter a title..." 
-                      value={newProject.title}
-                      onChange={(e) => setNewProject({...newProject, title: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="projectDescription">Description</Label>
-                    <Input 
-                      id="projectDescription" 
-                      placeholder="Enter a description..." 
-                      value={newProject.description}
-                      onChange={(e) => setNewProject({...newProject, description: e.target.value})}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button onClick={handleCreateProject}>Create Project</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            {/* Create Project Card */}
+            <Card 
+              className="h-64 flex flex-col items-center justify-center cursor-pointer hover:bg-accent/40 transition-colors border-dashed border-2"
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              <CardContent className="flex flex-col items-center justify-center p-6">
+                <Plus className="h-12 w-12 text-muted-foreground mb-4" />
+                <CardTitle className="text-xl text-muted-foreground">Create New Project</CardTitle>
+              </CardContent>
+            </Card>
             
             {/* Project Cards */}
             {projects.map((project) => (
               <Link 
                 href={`/project/${project.id}`} 
                 key={project.id}
-                className="block"
+                className="block group"
               >
-                <Card className="h-64 overflow-hidden group relative hover:shadow-md transition-shadow">
+                <Card className="h-64 overflow-hidden relative hover:shadow-md transition-shadow">
                   {project.coverImage && (
                     <div className="absolute inset-0 bg-cover bg-center z-0" style={{ 
                       backgroundImage: `url(${project.coverImage})`,
@@ -190,21 +188,45 @@ export function ProjectList() {
                   )}
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background z-0" />
                   <div className="relative z-10 h-full flex flex-col">
-                    <CardHeader className="flex flex-row items-start justify-between">
-                      <div>
+                    <CardHeader className="flex flex-row items-start justify-between p-6">
+                      <div className="flex-1 pr-8">
                         <CardTitle className="text-xl">{project.title}</CardTitle>
                         <CardDescription className="line-clamp-2 mt-1">
                           {project.description}
                         </CardDescription>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => handleDeleteProject(project.id, e)}
-                      >
-                        <Trash2 className="h-4 w-4 text-muted-foreground" />
-                      </Button>
+                      <div className="absolute top-4 right-4">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                              onClick={(e) => e.preventDefault()}
+                            >
+                              <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => handleEditProject(project.id, e)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => handleExportProject(project.id, e)}>
+                              <Download className="h-4 w-4 mr-2" />
+                              Export
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={(e) => handleDeleteProject(project.id, e)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </CardHeader>
                     <CardFooter className="mt-auto">
                       <p className="text-sm text-muted-foreground">
@@ -218,6 +240,29 @@ export function ProjectList() {
           </div>
         </div>
       </div>
+      
+      {/* Create Project Dialog */}
+      <ProjectDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onSubmit={handleCreateProject}
+        mode="create"
+      />
+      
+      {/* Edit Project Dialog */}
+      {editingProject && (
+        <ProjectDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          onSubmit={handleUpdateProject}
+          initialData={{
+            title: editingProject.title,
+            description: editingProject.description,
+            coverImage: editingProject.coverImage,
+          }}
+          mode="edit"
+        />
+      )}
     </div>
   );
 } 
