@@ -15,7 +15,7 @@ export interface WritingAppProps {
 
 export function WritingApp({ projectId }: WritingAppProps) {
   const [mode, setMode] = useState<Mode>('planning');
-  const [chatSidebarCollapsed, setChatSidebarCollapsed] = useState(true);
+  const [chatSidebarCollapsed, setChatSidebarCollapsed] = useState(false);
   const { setActiveProject, getProjectById } = useProjects();
   const router = useRouter();
   
