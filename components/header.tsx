@@ -12,7 +12,8 @@ import {
   Download,
   History,
   Search,
-  LucideChevronDown
+  LucideChevronDown,
+  Wand2
 } from 'lucide-react';
 import { 
   Select,
@@ -23,16 +24,28 @@ import {
 } from "@/components/ui/select";
 import { type Mode } from '@/components/writing-app';
 import Link from 'next/link';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface HeaderProps {
   mode: Mode;
   setMode: (mode: Mode) => void;
   chatSidebarCollapsed: boolean;
   setChatSidebarCollapsed: (collapsed: boolean) => void;
+  aiScribeEnabled: boolean;
+  setAiScribeEnabled: (enabled: boolean) => void;
   projectId: string;
 }
 
-export function Header({ mode, setMode, chatSidebarCollapsed, setChatSidebarCollapsed, projectId }: HeaderProps) {
+export function Header({ 
+  mode, 
+  setMode, 
+  chatSidebarCollapsed, 
+  setChatSidebarCollapsed, 
+  aiScribeEnabled,
+  setAiScribeEnabled,
+  projectId 
+}: HeaderProps) {
   return (
     <header className="border-b">
       <div className="flex h-16 items-center px-4">
@@ -65,52 +78,53 @@ export function Header({ mode, setMode, chatSidebarCollapsed, setChatSidebarColl
           
           <Separator orientation="vertical" className="h-6" />
           
-          <Button 
-            variant={chatSidebarCollapsed ? 'ghost' : 'default'}
-            size="sm"
-            onClick={() => setChatSidebarCollapsed(!chatSidebarCollapsed)}
-            className="gap-2"
-          >
-            <MessageSquare className="h-4 w-4" />
-            AI Helper
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Switch 
+                id="ai-chat" 
+                checked={!chatSidebarCollapsed}
+                onCheckedChange={(checked) => setChatSidebarCollapsed(!checked)}
+              />
+              <Label htmlFor="ai-chat" className="flex items-center gap-1 cursor-pointer">
+                <MessageSquare className="h-4 w-4" />
+                AI Chat
+              </Label>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Switch 
+                id="ai-scribe" 
+                checked={aiScribeEnabled}
+                onCheckedChange={setAiScribeEnabled}
+              />
+              <Label htmlFor="ai-scribe" className="flex items-center gap-1 cursor-pointer">
+                <Wand2 className="h-4 w-4" />
+                AI Scribe
+              </Label>
+            </div>
+          </div>
+          
+          <Button variant="ghost" size="icon">
+            <Download className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon">
+            <History className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon">
+            <Search className="h-4 w-4" />
           </Button>
           
           <Select defaultValue="gemini-2.0-flash">
-            <SelectTrigger className="w-[180px] h-9">
-              <SelectValue placeholder="Select AI model" />
+            <SelectTrigger className="w-[180px] h-8">
+              <SelectValue placeholder="Select model" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
               <SelectItem value="gemini-2.0-pro">Gemini 2.0 Pro</SelectItem>
+              <SelectItem value="claude-3-5-sonnet">Claude 3.5 Sonnet</SelectItem>
               <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
-              <SelectItem value="claude-3-sonnet">Claude 3 Sonnet</SelectItem>
-              <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-              <SelectItem value="gpt-4o">GPT-4o</SelectItem>
             </SelectContent>
           </Select>
-          
-          <Separator orientation="vertical" className="h-6" />
-          
-          <div className="relative w-60">
-            <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground opacity-70" />
-            <Input 
-              type="search" 
-              placeholder="Search..." 
-              className="pl-8 h-9 border-foreground/20 focus-visible:ring-foreground/20 focus-visible:border-foreground/30 placeholder:text-foreground/50"
-            />
-          </div>
-
-          <Button variant="ghost" size="icon">
-            <History className="h-5 w-5" />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Settings className="h-5 w-5" />
-          </Button>
-          
-          <Button variant="ghost" size="icon">
-            <Download className="h-5 w-5" />
-          </Button>
-          <Separator orientation="vertical" className="h-6" />
           
           <ModeToggle />
         </div>

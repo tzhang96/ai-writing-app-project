@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2, LucideIcon, X, MoreVertical, AlertTriangle } from 'lucide-react';
+import { AiScribePopup, useAiScribe } from '@/components/ai-scribe-popup';
 import { 
   Dialog,
   DialogContent,
@@ -113,8 +114,6 @@ export function EntityPanel({
   const [fieldToDelete, setFieldToDelete] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
-  const selectedEntity = entities.find(e => e.id === selectedId);
-  
   // Combine built-in fields with custom fields
   const allFields: EntityField[] = [
     { key: 'name', label: 'Name', type: 'input', isDefault: true },
@@ -122,6 +121,84 @@ export function EntityPanel({
       placeholder: 'Enter a description...' },
     ...defaultFields
   ];
+  
+  const selectedEntity = entities.find(e => e.id === selectedId);
+  
+  // Create refs for textareas - one for description and one for each custom textarea field
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const customFieldRefs = useRef<{[key: string]: React.RefObject<HTMLTextAreaElement>}>({});
+  
+  // Initialize refs for custom textarea fields
+  useEffect(() => {
+    if (selectedEntity) {
+      // Create refs for custom textarea fields
+      defaultFields.forEach(field => {
+        if (field.type === 'textarea') {
+          if (!customFieldRefs.current[field.key]) {
+            customFieldRefs.current[field.key] = React.createRef<HTMLTextAreaElement>();
+          }
+        }
+      });
+    }
+  }, [selectedEntity, defaultFields]);
+  
+  // Use AI Scribe hooks - these must be called unconditionally
+  const descriptionAiScribe = useAiScribe(descriptionRef, true);
+  
+  // Create a fixed set of AI Scribe hooks for custom fields
+  // We'll use a maximum of 10 custom textarea fields to avoid dynamic hook creation
+  const customField1Ref = useRef<HTMLTextAreaElement>(null);
+  const customField2Ref = useRef<HTMLTextAreaElement>(null);
+  const customField3Ref = useRef<HTMLTextAreaElement>(null);
+  const customField4Ref = useRef<HTMLTextAreaElement>(null);
+  const customField5Ref = useRef<HTMLTextAreaElement>(null);
+  const customField6Ref = useRef<HTMLTextAreaElement>(null);
+  const customField7Ref = useRef<HTMLTextAreaElement>(null);
+  const customField8Ref = useRef<HTMLTextAreaElement>(null);
+  const customField9Ref = useRef<HTMLTextAreaElement>(null);
+  const customField10Ref = useRef<HTMLTextAreaElement>(null);
+  
+  const customField1AiScribe = useAiScribe(customField1Ref, true);
+  const customField2AiScribe = useAiScribe(customField2Ref, true);
+  const customField3AiScribe = useAiScribe(customField3Ref, true);
+  const customField4AiScribe = useAiScribe(customField4Ref, true);
+  const customField5AiScribe = useAiScribe(customField5Ref, true);
+  const customField6AiScribe = useAiScribe(customField6Ref, true);
+  const customField7AiScribe = useAiScribe(customField7Ref, true);
+  const customField8AiScribe = useAiScribe(customField8Ref, true);
+  const customField9AiScribe = useAiScribe(customField9Ref, true);
+  const customField10AiScribe = useAiScribe(customField10Ref, true);
+  
+  // Map of custom field keys to their refs and AI Scribe hooks
+  const customFieldsMap = useRef<{[key: string]: {
+    ref: React.RefObject<HTMLTextAreaElement>,
+    aiScribe: ReturnType<typeof useAiScribe>
+  }}>({});
+  
+  // Update the map when custom fields change
+  useEffect(() => {
+    const customTextareaFields = defaultFields.filter(field => field.type === 'textarea');
+    
+    // Assign refs and hooks to custom fields (up to 10)
+    const refs = [
+      customField1Ref, customField2Ref, customField3Ref, customField4Ref, customField5Ref,
+      customField6Ref, customField7Ref, customField8Ref, customField9Ref, customField10Ref
+    ];
+    
+    const hooks = [
+      customField1AiScribe, customField2AiScribe, customField3AiScribe, customField4AiScribe, customField5AiScribe,
+      customField6AiScribe, customField7AiScribe, customField8AiScribe, customField9AiScribe, customField10AiScribe
+    ];
+    
+    customTextareaFields.forEach((field, index) => {
+      if (index < 10) {
+        customFieldsMap.current[field.key] = {
+          ref: refs[index],
+          aiScribe: hooks[index]
+        };
+      }
+    });
+  }, [defaultFields]);
   
   const handleAddField = () => {
     if (!newFieldName.trim() || !onAddField) return;
@@ -150,6 +227,70 @@ export function EntityPanel({
       setFieldToDelete(null);
     }
     setIsDeleteDialogOpen(false);
+  };
+
+  const renderField = (entity: Entity, field: EntityField) => {
+    const isTextarea = field.type === 'textarea';
+    let ref = null;
+    let aiScribeHook = null;
+    
+    if (isTextarea) {
+      if (field.key === 'description') {
+        ref = descriptionRef;
+        aiScribeHook = descriptionAiScribe;
+      } else if (customFieldsMap.current[field.key]) {
+        ref = customFieldsMap.current[field.key].ref;
+        aiScribeHook = customFieldsMap.current[field.key].aiScribe;
+      }
+    }
+    
+    return (
+      <div key={field.key} className="space-y-1.5 relative">
+        <div className="flex justify-between items-center">
+          <Label className="text-xs font-medium">{field.label}</Label>
+          {onRemoveField && !field.isDefault && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 text-muted-foreground"
+              onClick={() => handleDeleteField(field.key)}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+        
+        {isTextarea ? (
+          <Textarea 
+            ref={ref}
+            value={entity[field.key] || ''} 
+            onChange={(e) => onUpdate(entity.id, field.key, e.target.value)}
+            className="min-h-[100px] text-sm"
+            placeholder={field.placeholder}
+          />
+        ) : (
+          <Input 
+            value={entity[field.key] || ''} 
+            onChange={(e) => onUpdate(entity.id, field.key, e.target.value)}
+            className="h-8 text-sm"
+            placeholder={field.placeholder}
+          />
+        )}
+        
+        {isTextarea && aiScribeHook && aiScribeHook.showAiPopup && (
+          <AiScribePopup
+            selectedText={aiScribeHook.selectedText}
+            position={aiScribeHook.popupPosition}
+            onClose={aiScribeHook.closePopup}
+            onAction={(action, instructions) => {
+              // Handle AI actions here
+              console.log(`Action ${action} with instructions: ${instructions}`);
+              aiScribeHook.handleAiAction(action, instructions);
+            }}
+          />
+        )}
+      </div>
+    );
   };
 
   return (
@@ -219,123 +360,81 @@ export function EntityPanel({
             <CardContent className="p-0 flex-1 overflow-hidden">
               <ScrollArea className="h-[calc(100vh-290px)]">
                 <div className="space-y-4 p-5 pb-8">
-                  {/* Name field */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Name</Label>
-                    <Input 
-                      value={selectedEntity.name} 
-                      onChange={(e) => onUpdate(selectedId, 'name', e.target.value)}
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                  
-                  {/* Description field */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Description</Label>
-                    <Textarea 
-                      value={selectedEntity.description || ''} 
-                      onChange={(e) => onUpdate(selectedId, 'description', e.target.value)}
-                      className="min-h-[120px] text-sm"
-                      placeholder="Enter a description..."
-                    />
-                  </div>
-                  
-                  {/* Custom fields */}
-                  {defaultFields.map((field) => (
-                    <div key={field.key} className="space-y-1.5 relative">
-                      <div className="flex justify-between items-center">
-                        <Label className="text-xs font-medium">{field.label}</Label>
-                        {onRemoveField && !field.isDefault && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteField(field.key)}
-                            className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                      {field.type === 'input' ? (
-                        <Input 
-                          value={selectedEntity[field.key] || ''} 
-                          onChange={(e) => onUpdate(selectedId, field.key, e.target.value)}
-                          className="text-sm"
-                          placeholder={field.placeholder}
-                        />
-                      ) : (
-                        <Textarea 
-                          value={selectedEntity[field.key] || ''} 
-                          onChange={(e) => onUpdate(selectedId, field.key, e.target.value)}
-                          className="min-h-[100px] text-sm"
-                          placeholder={field.placeholder}
-                        />
-                      )}
-                    </div>
-                  ))}
+                  {/* Render fields */}
+                  {allFields.map(field => renderField(selectedEntity, field))}
                   
                   {/* Add Field Button */}
                   {onAddField && (
-                    <Dialog open={isAddingField} onOpenChange={setIsAddingField}>
-                      <DialogTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="w-full mt-4 text-sm"
-                        >
-                          <Plus className="h-3.5 w-3.5 mr-2" />
-                          Add Field
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-md">
-                        <DialogHeader>
-                          <DialogTitle>Add Custom Field</DialogTitle>
-                          <DialogDescription>
-                            Create a new field for {title.toLowerCase()}.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="field-name">Field Name</Label>
-                            <Input
-                              id="field-name"
-                              placeholder="e.g., Occupation, Age, Powers..."
+                    <div className="pt-2">
+                      {isAddingField ? (
+                        <div className="space-y-3 border rounded-md p-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Field Name</Label>
+                            <Input 
                               value={newFieldName}
                               onChange={(e) => setNewFieldName(e.target.value)}
+                              placeholder="Enter field name..."
+                              className="h-8 text-sm"
                             />
                           </div>
-                          <div className="space-y-2">
-                            <Label>Field Type</Label>
+                          
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Field Type</Label>
                             <div className="flex gap-2">
                               <Button
                                 type="button"
+                                size="sm"
                                 variant={newFieldType === 'input' ? 'default' : 'outline'}
                                 onClick={() => setNewFieldType('input')}
-                                className="flex-1"
+                                className="text-xs flex-1"
                               >
                                 Short Text
                               </Button>
                               <Button
                                 type="button"
+                                size="sm"
                                 variant={newFieldType === 'textarea' ? 'default' : 'outline'}
                                 onClick={() => setNewFieldType('textarea')}
-                                className="flex-1"
+                                className="text-xs flex-1"
                               >
                                 Long Text
                               </Button>
                             </div>
                           </div>
+                          
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setIsAddingField(false)}
+                              className="text-xs"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleAddField}
+                              className="text-xs"
+                              disabled={!newFieldName.trim()}
+                            >
+                              Add Field
+                            </Button>
+                          </div>
                         </div>
-                        <DialogFooter>
-                          <Button 
-                            onClick={handleAddField}
-                            disabled={!newFieldName.trim()}
-                          >
-                            Add Field
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsAddingField(true)}
+                          className="w-full gap-1 text-xs"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Add Custom Field
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
               </ScrollArea>
@@ -344,25 +443,18 @@ export function EntityPanel({
         </div>
       )}
       
-      {/* Field Delete Confirmation Dialog */}
+      {/* Delete Field Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              Delete Field
-            </AlertDialogTitle>
+            <AlertDialogTitle>Delete Custom Field</AlertDialogTitle>
             <AlertDialogDescription>
-              This will delete the field "{defaultFields.find(f => f.key === fieldToDelete)?.label}" 
-              from <strong>all {title.toLowerCase()}</strong>. This action cannot be undone.
+              This will remove the field and its data from all {title.toLowerCase()}. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setFieldToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={confirmDeleteField}
-            >
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteField} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
