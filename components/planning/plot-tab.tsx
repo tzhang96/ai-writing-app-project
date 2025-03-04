@@ -150,37 +150,29 @@ export function PlotTab() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <MoveVertical className="h-5 w-5" />
-          Plot Structure
-        </h2>
-        <Button onClick={addPlotPoint} className="gap-2">
+        <Button onClick={addPlotPoint} className="ml-auto gap-2">
           <Plus className="h-4 w-4" />
           Add Plot Point
         </Button>
       </div>
       
-      <Card className="flex-1">
-        <CardHeader>
-          <CardTitle>Story Arc</CardTitle>
-          <CardDescription>
-            Organize your story's plot points in sequential order. Drag to reorder.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[calc(100vh-280px)]">
-            {sortedPlotPoints.map((plotPoint, index) => (
-              <PlotPointCard
-                key={plotPoint.id}
-                plotPoint={plotPoint}
-                onUpdate={updatePlotPoint}
-                onDelete={deletePlotPoint}
-                onMoveUp={movePlotPointUp}
-                onMoveDown={movePlotPointDown}
-                isFirst={index === 0}
-                isLast={index === sortedPlotPoints.length - 1}
-              />
-            ))}
+      <Card className="flex-1 overflow-hidden">
+        <CardContent className="p-0">
+          <ScrollArea className="h-[calc(100vh-240px)]">
+            <div className="p-6 pb-8">
+              {sortedPlotPoints.map((plotPoint, index) => (
+                <PlotPointCard
+                  key={plotPoint.id}
+                  plotPoint={plotPoint}
+                  onUpdate={updatePlotPoint}
+                  onDelete={deletePlotPoint}
+                  onMoveUp={movePlotPointUp}
+                  onMoveDown={movePlotPointDown}
+                  isFirst={index === 0}
+                  isLast={index === sortedPlotPoints.length - 1}
+                />
+              ))}
+            </div>
           </ScrollArea>
         </CardContent>
       </Card>

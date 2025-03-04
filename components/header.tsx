@@ -3,7 +3,24 @@
 import { ModeToggle } from '@/components/mode-toggle';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { PenLine, Lightbulb, Save, Download, Upload, Settings, MessageSquare } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { 
+  PenLine, 
+  Lightbulb, 
+  Settings, 
+  MessageSquare,
+  Download,
+  History,
+  Search,
+  LucideChevronDown
+} from 'lucide-react';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue 
+} from "@/components/ui/select";
 import { type Mode } from '@/components/writing-app';
 import Link from 'next/link';
 
@@ -58,21 +75,41 @@ export function Header({ mode, setMode, chatSidebarCollapsed, setChatSidebarColl
             AI Helper
           </Button>
           
+          <Select defaultValue="gemini-2.0-flash">
+            <SelectTrigger className="w-[180px] h-9">
+              <SelectValue placeholder="Select AI model" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+              <SelectItem value="gemini-2.0-pro">Gemini 2.0 Pro</SelectItem>
+              <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
+              <SelectItem value="claude-3-sonnet">Claude 3 Sonnet</SelectItem>
+              <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+              <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+            </SelectContent>
+          </Select>
+          
           <Separator orientation="vertical" className="h-6" />
           
+          <div className="relative w-60">
+            <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground opacity-70" />
+            <Input 
+              type="search" 
+              placeholder="Search..." 
+              className="pl-8 h-9 border-foreground/20 focus-visible:ring-foreground/20 focus-visible:border-foreground/30 placeholder:text-foreground/50"
+            />
+          </div>
+
           <Button variant="ghost" size="icon">
-            <Save className="h-5 w-5" />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Download className="h-5 w-5" />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Upload className="h-5 w-5" />
+            <History className="h-5 w-5" />
           </Button>
           <Button variant="ghost" size="icon">
             <Settings className="h-5 w-5" />
           </Button>
           
+          <Button variant="ghost" size="icon">
+            <Download className="h-5 w-5" />
+          </Button>
           <Separator orientation="vertical" className="h-6" />
           
           <ModeToggle />

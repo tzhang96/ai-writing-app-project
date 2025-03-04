@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
 import { Plus, Trash2, Palette } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 interface StyleExample {
   id: string;
@@ -21,34 +22,34 @@ function StyleExampleCard({ example, onUpdate, onDelete }: {
   onDelete: (id: string) => void;
 }) {
   return (
-    <Card className="mb-4">
-      <CardHeader className="pb-2">
+    <div className="mb-3 border rounded-md">
+      <div className="p-2 pb-1">
         <div className="flex items-center justify-between">
           <Input
             value={example.title}
             onChange={(e) => onUpdate(example.id, 'title', e.target.value)}
-            className="font-semibold text-lg border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="font-semibold text-sm border-none focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-7"
             placeholder="Example title..."
           />
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={() => onDelete(example.id)}
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            className="h-6 w-6 text-muted-foreground hover:text-destructive"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div className="p-2 pt-0">
         <Textarea
           value={example.content}
           onChange={(e) => onUpdate(example.id, 'content', e.target.value)}
-          className="min-h-[150px]"
+          className="min-h-[80px] max-h-[120px] border-none focus-visible:ring-0 text-sm"
           placeholder="Write your style example here..."
         />
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -87,98 +88,87 @@ export function StyleTab() {
   
   return (
     <div className="h-full flex flex-col">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <Palette className="h-5 w-5" />
-          Writing Style
-        </h2>
-      </div>
-      
-      <div className="grid grid-cols-2 gap-4 h-full">
-        <Card className="flex flex-col">
-          <CardHeader>
-            <CardTitle>Style Guidelines</CardTitle>
-            <CardDescription>
-              Define your writing style, voice, and technical preferences.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1">
-            <Tabs defaultValue="voice" className="w-full h-full flex flex-col">
-              <TabsList className="grid grid-cols-4 w-full">
-                <TabsTrigger value="voice">Voice & Tone</TabsTrigger>
-                <TabsTrigger value="pov">Point of View</TabsTrigger>
-                <TabsTrigger value="tense">Tense</TabsTrigger>
-                <TabsTrigger value="dialogue">Dialogue</TabsTrigger>
-              </TabsList>
-              
-              <div className="flex-1 pt-4">
-                <TabsContent value="voice" className="h-full">
-                  <Textarea 
-                    className="min-h-[300px] h-full"
-                    placeholder="Describe your narrative voice and tone..."
-                    value={styleNotes.voice}
-                    onChange={(e) => updateStyleNote('voice', e.target.value)}
-                  />
-                </TabsContent>
-                
-                <TabsContent value="pov" className="h-full">
-                  <Textarea 
-                    className="min-h-[300px] h-full"
-                    placeholder="Describe your point of view approach..."
-                    value={styleNotes.pov}
-                    onChange={(e) => updateStyleNote('pov', e.target.value)}
-                  />
-                </TabsContent>
-                
-                <TabsContent value="tense" className="h-full">
-                  <Textarea 
-                    className="min-h-[300px] h-full"
-                    placeholder="Describe your tense preferences..."
-                    value={styleNotes.tense}
-                    onChange={(e) => updateStyleNote('tense', e.target.value)}
-                  />
-                </TabsContent>
-                
-                <TabsContent value="dialogue" className="h-full">
-                  <Textarea 
-                    className="min-h-[300px] h-full"
-                    placeholder="Describe your dialogue style and formatting..."
-                    value={styleNotes.dialogue}
-                    onChange={(e) => updateStyleNote('dialogue', e.target.value)}
-                  />
-                </TabsContent>
-              </div>
-            </Tabs>
-          </CardContent>
-        </Card>
-        
-        <Card className="flex flex-col">
-          <CardHeader className="flex-row justify-between items-start space-y-0">
-            <div>
-              <CardTitle>Style Examples</CardTitle>
-              <CardDescription>
-                Create examples that showcase your writing style.
-              </CardDescription>
-            </div>
-            <Button onClick={addStyleExample} size="sm" className="gap-1">
-              <Plus className="h-4 w-4" />
-              Add Example
-            </Button>
-          </CardHeader>
-          <CardContent className="flex-1">
-            <ScrollArea className="h-[calc(100vh-280px)]">
-              {styleExamples.map(example => (
-                <StyleExampleCard
-                  key={example.id}
-                  example={example}
-                  onUpdate={updateStyleExample}
-                  onDelete={deleteStyleExample}
+      <Card className="flex-1 overflow-hidden">
+        <CardContent className="p-0">
+          <ScrollArea className="h-[calc(100vh-180px)]">
+            <div className="space-y-4 p-6 pb-8">
+              {/* Voice & Tone Section */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Voice & Tone</Label>
+                <Textarea 
+                  className="min-h-[80px] text-sm resize-none"
+                  placeholder="Describe your narrative voice and tone..."
+                  value={styleNotes.voice}
+                  onChange={(e) => updateStyleNote('voice', e.target.value)}
                 />
-              ))}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      </div>
+              </div>
+              
+              {/* Point of View Section */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Point of View</Label>
+                <Textarea 
+                  className="min-h-[80px] text-sm resize-none"
+                  placeholder="Describe your point of view approach..."
+                  value={styleNotes.pov}
+                  onChange={(e) => updateStyleNote('pov', e.target.value)}
+                />
+              </div>
+              
+              {/* Tense Section */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Tense</Label>
+                <Textarea 
+                  className="min-h-[80px] text-sm resize-none"
+                  placeholder="Describe your tense preferences..."
+                  value={styleNotes.tense}
+                  onChange={(e) => updateStyleNote('tense', e.target.value)}
+                />
+              </div>
+              
+              {/* Dialogue Section */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Dialogue</Label>
+                <Textarea 
+                  className="min-h-[80px] text-sm resize-none"
+                  placeholder="Describe your dialogue style and formatting..."
+                  value={styleNotes.dialogue}
+                  onChange={(e) => updateStyleNote('dialogue', e.target.value)}
+                />
+              </div>
+              
+              <Separator className="my-3" />
+              
+              {/* Style Examples Section */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <Label className="text-sm font-medium">Style Examples</Label>
+                </div>
+                
+                <div className="space-y-2">
+                  {styleExamples.map(example => (
+                    <StyleExampleCard
+                      key={example.id}
+                      example={example}
+                      onUpdate={updateStyleExample}
+                      onDelete={deleteStyleExample}
+                    />
+                  ))}
+                </div>
+                
+                <Button 
+                  onClick={addStyleExample} 
+                  size="sm" 
+                  variant="outline" 
+                  className="mt-3 h-7 text-xs gap-1"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add Example
+                </Button>
+              </div>
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
   );
 }

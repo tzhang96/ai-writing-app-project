@@ -11,12 +11,13 @@ export function generateStaticParams() {
   }));
 }
 
-export default function ProjectPage({ 
+export default async function ProjectPage({ 
   params 
 }: { 
   params: { id: string } 
 }) {
   // The project existence check will happen in the WritingApp component
   // If the project doesn't exist, it will redirect to the home page
-  return <WritingApp projectId={params.id} />;
+  const projectId = params.id;
+  return <WritingApp projectId={projectId} />;
 } 

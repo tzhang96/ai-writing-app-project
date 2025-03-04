@@ -78,32 +78,27 @@ export function BrainstormingTab() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold">Brainstorming</h2>
-        <Button onClick={addIdea} className="gap-2">
+        <Button onClick={addIdea} className="ml-auto gap-2">
           <Plus className="h-4 w-4" />
           Add Idea
         </Button>
       </div>
       
-      <Card className="flex-1">
-        <CardHeader>
-          <CardTitle>Ideas Board</CardTitle>
-          <CardDescription>
-            Capture your thoughts, concepts, and inspirations for your writing project.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[calc(100vh-280px)]">
-            {ideas.map(idea => (
-              <IdeaCard
-                key={idea.id}
-                id={idea.id}
-                title={idea.title}
-                content={idea.content}
-                onUpdate={updateIdea}
-                onDelete={deleteIdea}
-              />
-            ))}
+      <Card className="flex-1 overflow-hidden">
+        <CardContent className="p-0">
+          <ScrollArea className="h-[calc(100vh-240px)]">
+            <div className="p-6 pb-8">
+              {ideas.map(idea => (
+                <IdeaCard
+                  key={idea.id}
+                  id={idea.id}
+                  title={idea.title}
+                  content={idea.content}
+                  onUpdate={updateIdea}
+                  onDelete={deleteIdea}
+                />
+              ))}
+            </div>
           </ScrollArea>
         </CardContent>
       </Card>
