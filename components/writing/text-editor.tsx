@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -20,13 +20,19 @@ import {
   Redo,
   Search
 } from 'lucide-react';
+import { AiScribePopup, useAiScribe } from '@/components/ai-scribe-popup';
 
 interface ChapterContent {
   id: string;
   content: string;
 }
 
-export function TextEditor({ activeChapterId }: { activeChapterId: string | null }) {
+interface TextEditorProps {
+  activeChapterId: string | null;
+  aiScribeEnabled: boolean;
+}
+
+export function TextEditor({ activeChapterId, aiScribeEnabled }: TextEditorProps) {
   const [chapterContents, setChapterContents] = useState<ChapterContent[]>([
     { 
       id: 'chapter-1', 
@@ -56,6 +62,15 @@ export function TextEditor({ activeChapterId }: { activeChapterId: string | null
   
   const [currentContent, setCurrentContent] = useState('');
   const [wordCount, setWordCount] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  const {
+    showAiPopup,
+    selectedText,
+    popupPosition,
+    handleAiAction,
+    closePopup
+  } = useAiScribe(textareaRef, aiScribeEnabled);
   
   useEffect(() => {
     if (activeChapterId) {
@@ -101,7 +116,7 @@ export function TextEditor({ activeChapterId }: { activeChapterId: string | null
   };
   
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
       <div className="border-b p-2">
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="ghost" size="icon">
@@ -171,6 +186,7 @@ export function TextEditor({ activeChapterId }: { activeChapterId: string | null
       <ScrollArea className="flex-1 p-6">
         {activeChapterId ? (
           <textarea
+            ref={textareaRef}
             value={currentContent}
             onChange={handleContentChange}
             className="w-full h-full min-h-[calc(100vh-250px)] p-4 text-lg leading-relaxed resize-none focus:outline-none bg-transparent"
@@ -191,6 +207,16 @@ export function TextEditor({ activeChapterId }: { activeChapterId: string | null
           Last saved: {new Date().toLocaleTimeString()}
         </div>
       </div>
+      
+      {/* AI Scribe Popup */}
+      {showAiPopup && (
+        <AiScribePopup
+          selectedText={selectedText}
+          position={popupPosition}
+          onAction={handleAiAction}
+          onClose={closePopup}
+        />
+      )}
     </div>
   );
 }

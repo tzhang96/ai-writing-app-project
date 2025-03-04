@@ -16,6 +16,7 @@ export interface WritingAppProps {
 export function WritingApp({ projectId }: WritingAppProps) {
   const [mode, setMode] = useState<Mode>('planning');
   const [chatSidebarCollapsed, setChatSidebarCollapsed] = useState(false);
+  const [aiScribeEnabled, setAiScribeEnabled] = useState(true);
   const { setActiveProject, getProjectById } = useProjects();
   const router = useRouter();
   
@@ -57,6 +58,8 @@ export function WritingApp({ projectId }: WritingAppProps) {
         setMode={setMode} 
         chatSidebarCollapsed={chatSidebarCollapsed} 
         setChatSidebarCollapsed={setChatSidebarCollapsed}
+        aiScribeEnabled={aiScribeEnabled}
+        setAiScribeEnabled={setAiScribeEnabled}
         projectId={projectId}
       />
       <div className="flex-1 overflow-hidden">
@@ -64,11 +67,13 @@ export function WritingApp({ projectId }: WritingAppProps) {
           <PlanningMode 
             chatSidebarCollapsed={chatSidebarCollapsed}
             projectId={projectId}
+            aiScribeEnabled={aiScribeEnabled}
           />
         ) : (
           <WritingMode 
             chatSidebarCollapsed={chatSidebarCollapsed}
             projectId={projectId}
+            aiScribeEnabled={aiScribeEnabled}
           />
         )}
       </div>

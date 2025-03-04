@@ -14,7 +14,7 @@ interface Character extends Entity {
 // Simple function to generate a unique ID
 const generateId = () => `id-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-export function CharactersTab() {
+export function CharactersTab({ aiScribeEnabled }: { aiScribeEnabled: boolean }) {
   const [characters, setCharacters] = useState<Character[]>([
     {
       id: '1',

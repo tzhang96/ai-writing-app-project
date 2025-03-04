@@ -1,20 +1,32 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ChevronDown as ChevronDownIcon, MoreVertical } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ChevronDown as ChevronDownIcon, MoreVertical, Wand2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { AiScribePopup, useAiScribe } from '@/components/ai-scribe-popup';
 
 interface PlotPoint {
   id: string;
   title: string;
   description: string;
   sequence: number;
+}
+
+interface PlotPointCardProps { 
+  plotPoint: PlotPoint;
+  onUpdate: (id: string, field: keyof PlotPoint, value: string) => void;
+  onDelete: (id: string) => void;
+  onMoveUp: (id: string) => void;
+  onMoveDown: (id: string) => void;
+  isFirst: boolean;
+  isLast: boolean;
+  aiScribeEnabled: boolean;
 }
 
 function PlotPointCard({ 
@@ -24,20 +36,22 @@ function PlotPointCard({
   onMoveUp, 
   onMoveDown,
   isFirst,
-  isLast
-}: { 
-  plotPoint: PlotPoint;
-  onUpdate: (id: string, field: keyof PlotPoint, value: string) => void;
-  onDelete: (id: string) => void;
-  onMoveUp: (id: string) => void;
-  onMoveDown: (id: string) => void;
-  isFirst: boolean;
-  isLast: boolean;
-}) {
+  isLast,
+  aiScribeEnabled
+}: PlotPointCardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  const {
+    showAiPopup,
+    selectedText,
+    popupPosition,
+    handleAiAction,
+    closePopup
+  } = useAiScribe(textareaRef, aiScribeEnabled);
 
   return (
-    <Card className="mb-3 overflow-hidden">
+    <Card className="mb-3 overflow-hidden relative">
       <div 
         className="flex items-center h-9 px-2 cursor-pointer hover:bg-accent/50"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -117,6 +131,7 @@ function PlotPointCard({
       <div className={cn("transition-all", isExpanded ? "max-h-[500px]" : "max-h-0 overflow-hidden")}>
         <CardContent className="pt-2 px-3 pb-3">
           <Textarea
+            ref={textareaRef}
             value={plotPoint.description}
             onChange={(e) => onUpdate(plotPoint.id, 'description', e.target.value)}
             className="min-h-[80px] resize-none border focus-visible:ring-1 text-sm"
@@ -124,11 +139,25 @@ function PlotPointCard({
           />
         </CardContent>
       </div>
+      
+      {/* AI Scribe Popup */}
+      {showAiPopup && (
+        <AiScribePopup
+          selectedText={selectedText}
+          position={popupPosition}
+          onAction={handleAiAction}
+          onClose={closePopup}
+        />
+      )}
     </Card>
   );
 }
 
-export function PlotTab() {
+interface PlotTabProps {
+  aiScribeEnabled: boolean;
+}
+
+export function PlotTab({ aiScribeEnabled }: PlotTabProps) {
   const [plotPoints, setPlotPoints] = useState<PlotPoint[]>([
     { id: '1', title: 'Introduction', description: 'The beginning of your story...', sequence: 1 },
     { id: '2', title: 'Rising Action', description: 'Conflict begins to develop...', sequence: 2 },
@@ -216,6 +245,7 @@ export function PlotTab() {
                   onMoveDown={movePlotPointDown}
                   isFirst={index === 0}
                   isLast={index === sortedPlotPoints.length - 1}
+                  aiScribeEnabled={aiScribeEnabled}
                 />
               ))}
             </div>

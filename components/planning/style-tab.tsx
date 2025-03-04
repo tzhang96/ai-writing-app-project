@@ -53,7 +53,7 @@ function StyleExampleCard({ example, onUpdate, onDelete }: {
   );
 }
 
-export function StyleTab() {
+export function StyleTab({ aiScribeEnabled }: { aiScribeEnabled: boolean }) {
   const [styleNotes, setStyleNotes] = useState({
     voice: "Notes about your narrative voice and tone...",
     pov: "Notes about your point of view (first person, third person, etc.)...",

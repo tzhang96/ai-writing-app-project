@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { AiScribePopup, useAiScribe } from '@/components/ai-scribe-popup';
 
 interface Brainstorm {
   id: string;
@@ -24,19 +25,29 @@ interface BrainstormCardProps {
   onUpdate: (id: string, title: string, content: string) => void;
   onDelete: (id: string) => void;
   onGenerate: (id: string) => void;
+  aiScribeEnabled: boolean;
 }
 
 function formatDate(date: Date): string {
   return format(date, 'MMM d, h:mm a');
 }
 
-function BrainstormCard({ brainstorm, onUpdate, onDelete, onGenerate }: BrainstormCardProps) {
+function BrainstormCard({ brainstorm, onUpdate, onDelete, onGenerate, aiScribeEnabled }: BrainstormCardProps) {
   const [editTitle, setEditTitle] = useState(brainstorm.title);
   const [editContent, setEditContent] = useState(brainstorm.content);
   const [isExpanded, setIsExpanded] = useState(true);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  const {
+    showAiPopup,
+    selectedText,
+    popupPosition,
+    handleAiAction,
+    closePopup
+  } = useAiScribe(textareaRef, aiScribeEnabled);
 
   return (
-    <Card className="mb-3 overflow-hidden">
+    <Card className="mb-3 overflow-hidden relative">
       <div 
         className="flex items-center h-9 px-2 cursor-pointer hover:bg-accent/50"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -87,6 +98,7 @@ function BrainstormCard({ brainstorm, onUpdate, onDelete, onGenerate }: Brainsto
       <div className={cn("transition-all", isExpanded ? "max-h-[500px]" : "max-h-0 overflow-hidden")}>
         <CardContent className="pt-2 px-3 pb-2">
           <Textarea
+            ref={textareaRef}
             value={editContent}
             onChange={(e) => {
               setEditContent(e.target.value);
@@ -111,11 +123,25 @@ function BrainstormCard({ brainstorm, onUpdate, onDelete, onGenerate }: Brainsto
           </Button>
         </CardFooter>
       </div>
+      
+      {/* AI Scribe Popup */}
+      {showAiPopup && (
+        <AiScribePopup
+          selectedText={selectedText}
+          position={popupPosition}
+          onAction={handleAiAction}
+          onClose={closePopup}
+        />
+      )}
     </Card>
   );
 }
 
-export function BrainstormingTab() {
+interface BrainstormingTabProps {
+  aiScribeEnabled: boolean;
+}
+
+export function BrainstormingTab({ aiScribeEnabled }: BrainstormingTabProps) {
   const [brainstorms, setBrainstorms] = useState<Brainstorm[]>([
     { 
       id: '1', 
@@ -195,6 +221,7 @@ export function BrainstormingTab() {
                     onUpdate={updateBrainstorm}
                     onDelete={deleteBrainstorm}
                     onGenerate={generateBrainstorm}
+                    aiScribeEnabled={aiScribeEnabled}
                   />
                 ))
               ) : (

@@ -9,14 +9,15 @@ import { TextEditor } from '@/components/writing/text-editor';
 import { ChatSidebar } from '@/components/chat-sidebar';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { OutliningPanel } from '@/components/planning/outlining-panel';
+// import { OutliningPanel } from '@/components/planning/outlining-panel';
 
 interface WritingModeProps {
   chatSidebarCollapsed: boolean;
   projectId: string;
+  aiScribeEnabled: boolean;
 }
 
-export function WritingMode({ chatSidebarCollapsed, projectId }: WritingModeProps) {
+export function WritingMode({ chatSidebarCollapsed, projectId, aiScribeEnabled }: WritingModeProps) {
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
   const [activeChapterId, setActiveChapterId] = useState<string | null>('chapter-1');
   
@@ -47,7 +48,10 @@ export function WritingMode({ chatSidebarCollapsed, projectId }: WritingModeProp
         
         {/* Main Editor Area */}
         <ResizablePanel defaultSize={80}>
-          <TextEditor activeChapterId={activeChapterId} />
+          <TextEditor 
+            activeChapterId={activeChapterId} 
+            aiScribeEnabled={aiScribeEnabled} 
+          />
         </ResizablePanel>
 
         {/* Right Sidebar (Chat) */}
