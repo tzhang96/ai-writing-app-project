@@ -1,0 +1,4096 @@
+Directory structure:
+└── tzhang96-quick-ai-text-editor/
+    ├── README.md
+    ├── eslint.config.mjs
+    ├── next.config.ts
+    ├── package.json
+    ├── postcss.config.mjs
+    ├── tailwind.config.ts
+    ├── tsconfig.json
+    ├── .eslintrc.json
+    ├── app/
+    │   ├── globals.css
+    │   ├── layout.tsx
+    │   ├── page.tsx
+    │   ├── api/
+    │   │   └── history/
+    │   │       └── route.ts
+    │   ├── components/
+    │   │   ├── EditHistoryViewer.tsx
+    │   │   ├── EditorMenuBar.tsx
+    │   │   ├── TextSelectionPopup.tsx
+    │   │   ├── TokenUsageDisplay.tsx
+    │   │   └── editor/
+    │   │       ├── README.md
+    │   │       ├── core/
+    │   │       │   └── EditorContainer.tsx
+    │   │       ├── extensions/
+    │   │       │   └── PersistentHighlight.tsx
+    │   │       ├── hooks/
+    │   │       │   ├── useActionHistory.ts
+    │   │       │   ├── useEditorInitialization.ts
+    │   │       │   ├── useExportMenu.ts
+    │   │       │   ├── useModelSelection.ts
+    │   │       │   ├── useSelectionHandling.ts
+    │   │       │   └── useTextChangeTracking.ts
+    │   │       └── ui/
+    │   │           ├── ExportMenu.tsx
+    │   │           └── ModelSelector.tsx
+    │   ├── services/
+    │   │   ├── geminiService.ts
+    │   │   └── historyService.ts
+    │   ├── types/
+    │   │   └── editor.types.ts
+    │   └── utils/
+    │       ├── highlightUtils.ts
+    │       └── selectionUtils.ts
+    └── public/
+
+================================================
+File: README.md
+================================================
+# AI-Enhanced Text Editor
+
+A super cool rich text editor with AI capabilities powered by Google Gemini. This application allows you to write and format text, and then use AI to transform selected text in various ways, such as expanding, summarizing, rephrasing, or revising.
+
+## Features
+
+- **Rich Text Editing**: Format text with bold, italic, underline, headings, and lists
+- **Keyboard Shortcuts**: Standard shortcuts for formatting and editing
+- **AI-Powered Text Transformations**:
+  - **Expand**: Add more details and context to selected text
+  - **Summarize**: Create a concise summary of selected text
+  - **Rephrase**: Reword text while maintaining the original meaning
+  - **Revise**: Improve clarity and readability of selected text
+- **Custom Instructions**: Add specific instructions to guide the AI transformations
+- **Edit History**: View a complete log of all AI transformations made
+- **Improved UI Experience**:
+  - **Persistent Popup**: Text selection popup stays open after actions for easy multi-step editing
+  - **Font Toggle**: Switch between regular and monospace fonts with Ctrl+` shortcut
+  - **Smart Copy/Cut**: Preserves formatting when copying selected text, copies whole document when nothing selected
+  - **Action History**: Remembers additional instructions for each action for easy reuse
+  - **Export Options**: Download your work in various formats (HTML, Markdown, plain text)
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18.x or later
+- NPM or Yarn
+- Google Gemini API key
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/quick-ai-text-editor.git
+   cd quick-ai-text-editor
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+3. Create a `.env.local` file in the root directory with your Google Gemini API key:
+   ```
+   NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY=your_api_key_here
+   NEXT_PUBLIC_WORD_LIMIT=2500
+   ```
+
+4. Start the development server:
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
+
+5. Open [http://localhost:3000](http://localhost:3000) in your browser to use the application.
+
+## How to Use
+
+1. **Write or paste text** in the editor.
+2. **Format text** using the toolbar buttons or keyboard shortcuts:
+   - **Bold**: Ctrl+B
+   - **Italic**: Ctrl+I
+   - **Underline**: Ctrl+U
+   - **Headings**: Ctrl+Alt+[1-3]
+   - **Lists**: Ctrl+Shift+7 (ordered) or Ctrl+Shift+8 (unordered)
+   - **Undo/Redo**: Ctrl+Z / Ctrl+Y
+   - **Toggle Font**: Ctrl+` (switches between regular and monospace font)
+
+3. **Use AI transformations**:
+   - Select the text you want to modify
+   - Click on the "AI Actions" button that appears above the selection
+   - Choose from Expand, Summarize, Rephrase, or Revise
+   - Optionally add additional instructions to guide the AI
+   - Click the action button to apply the transformation
+   - The popup remains open after transformation, ready for further actions on the same text
+   - Additional instructions are cleared after each action for a clean slate
+
+4. **Copy and Cut operations**:
+   - Select text and press Ctrl+C to copy just the selected text with formatting preserved
+   - Press Ctrl+C without selection to copy the entire document
+   - Select text and press Ctrl+X to cut just the selected text
+   - Press Ctrl+X without selection to clear the entire document
+
+5. **View edit history**:
+   - Click the "History" button at the top of the editor
+   - Filter history entries using the search box
+   - View original and modified text for each transformation
+   - Reapply previous actions with their original instructions
+
+6. **Export your work**:
+   - Click the "Export" button in the top-right corner
+   - Choose from HTML, Markdown, or plain text formats
+   - Files are downloaded directly to your device
+
+7. **Word Limit Management**:
+   - The application has a configurable word limit to control API usage
+   - Default limit is 2,500 words
+   - You can adjust this limit by changing the `NEXT_PUBLIC_WORD_LIMIT` in your `.env.local` file
+   - If your document exceeds the word limit, you'll see a warning message when trying to use AI features
+
+## Development
+
+This project uses:
+
+- Next.js for the framework
+- TypeScript for type safety
+- TipTap for the rich text editor
+- Tailwind CSS for styling
+- Google Generative AI SDK for AI capabilities
+
+### Project Structure
+
+```
+quick-ai-text-editor/
+├── app/
+│   ├── api/
+│   │   └── history/
+│   │       └── route.ts      # API routes for edit history
+│   │   ├── components/
+│   │   │   ├── editor/
+│   │   │   │   ├── core/
+│   │   │   │   │   └── EditorContainer.tsx  # Main editor container
+│   │   │   │   ├── extensions/
+│   │   │   │   │   └── PersistentHighlight.tsx  # Custom TipTap extensions
+│   │   │   │   ├── hooks/
+│   │   │   │   │   ├── useEditorInitialization.ts  # Editor setup
+│   │   │   │   │   ├── useSelectionHandling.ts     # Text selection  
+│   │   │   │   │   └── useActionHistory.ts         # History management
+│   │   │   │   └── ui/
+│   │   │   │       ├── ExportMenu.tsx        # Export functionality
+│   │   │   │       └── ModelSelector.tsx     # AI model selection
+│   │   │   ├── EditorMenuBar.tsx             # Formatting toolbar
+│   │   │   ├── TextSelectionPopup.tsx        # AI action popup
+│   │   │   └── EditHistoryViewer.tsx         # History viewer
+│   │   ├── services/
+│   │   │   ├── geminiService.ts    # Google Gemini API integration
+│   │   │   └── historyService.ts   # Edit history logging
+│   │   ├── utils/
+│   │   │   ├── highlightUtils.ts   # Text highlighting utilities
+│   │   │   └── selectionUtils.ts   # Selection handling utilities
+│   │   └── page.tsx                # Main page
+│   ├── docs/
+│   │   └── planning.md           # Implementation checklist
+│   └── public/
+└── ...configuration files
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- [TipTap](https://tiptap.dev/) for the rich text editor
+- [Google Gemini API](https://ai.google.dev/) for AI capabilities
+- [Next.js](https://nextjs.org/) for the framework
+- [Tailwind CSS](https://tailwindcss.com/) for styling
+
+
+================================================
+File: eslint.config.mjs
+================================================
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+import { FlatCompat } from "@eslint/eslintrc";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+});
+
+const eslintConfig = [
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
+];
+
+export default eslintConfig;
+
+
+================================================
+File: next.config.ts
+================================================
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+
+
+================================================
+File: package.json
+================================================
+{
+  "name": "quick-ai-text-editor",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.22.0",
+    "@tiptap/extension-color": "^2.11.5",
+    "@tiptap/extension-highlight": "^2.11.5",
+    "@tiptap/extension-placeholder": "^2.11.5",
+    "@tiptap/extension-text-style": "^2.11.5",
+    "@tiptap/extension-underline": "^2.11.5",
+    "@tiptap/pm": "^2.11.5",
+    "@tiptap/react": "^2.11.5",
+    "@tiptap/starter-kit": "^2.11.5",
+    "@vercel/kv": "^3.0.0",
+    "axios": "^1.7.9",
+    "lodash": "^4.17.21",
+    "next": "15.1.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@types/lodash": "^4.17.15",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.1.7",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
+}
+
+
+================================================
+File: postcss.config.mjs
+================================================
+/** @type {import('postcss-load-config').Config} */
+const config = {
+  plugins: {
+    tailwindcss: {},
+  },
+};
+
+export default config;
+
+
+================================================
+File: tailwind.config.ts
+================================================
+import type { Config } from "tailwindcss";
+
+export default {
+  content: [
+    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+      },
+    },
+  },
+  plugins: [],
+} satisfies Config;
+
+
+================================================
+File: tsconfig.json
+================================================
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+
+
+================================================
+File: .eslintrc.json
+================================================
+{
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "react/no-unescaped-entities": "off",
+    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-unused-vars": "warn",
+    "@typescript-eslint/no-this-alias": "warn",
+    "react-hooks/exhaustive-deps": "warn"
+  }
+} 
+
+================================================
+File: app/globals.css
+================================================
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --editor-border: #e5e7eb;
+  --editor-focus-border: #3b82f6;
+  --highlight-background: rgba(255, 215, 0, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    --editor-border: #2d2d2d;
+    --editor-focus-border: #3b82f6;
+    --highlight-background: rgba(255, 215, 0, 0.4);
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* TipTap Editor Styles */
+.ProseMirror {
+  min-height: 500px;
+  padding: 1.5rem;
+  outline: none;
+  width: 100%;
+  color: #171717;
+  background: white;
+}
+
+.ProseMirror p {
+  margin: 0.75em 0;
+  line-height: 1.6;
+  color: #171717;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.editor-container .tiptap {
+  width: 100%;
+  transition: border-color 0.2s ease;
+}
+
+.editor-container:focus-within {
+  outline: none;
+}
+
+.ProseMirror:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.ProseMirror > * + * {
+  margin-top: 0.75em;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding: 0 1rem;
+  margin-left: 1rem;
+}
+
+.ProseMirror ul {
+  list-style-type: disc;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+}
+
+.ProseMirror li {
+  margin-bottom: 0.5em;
+}
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3 {
+  line-height: 1.1;
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+.ProseMirror h1 {
+  font-size: 1.75em;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5em;
+}
+
+.ProseMirror h3 {
+  font-size: 1.25em;
+}
+
+.ProseMirror code {
+  background-color: rgba(97, 97, 97, 0.1);
+  color: #616161;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+.ProseMirror pre {
+  background: #0D0D0D;
+  color: #FFF;
+  font-family: 'JetBrainsMono', monospace;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  margin: 1em 0;
+}
+
+.ProseMirror pre code {
+  color: inherit;
+  padding: 0;
+  background: none;
+  font-size: 0.8rem;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  margin: 1em 0;
+}
+
+/* Highlight styles */
+.highlight-yellow {
+  background-color: var(--highlight-background);
+  border-radius: 2px;
+  padding: 2px 1px;
+}
+
+/* Persistent highlight styles */
+.persistent-highlight {
+  background-color: var(--highlight-background);
+  border-radius: 2px;
+  padding: 1px 0;
+}
+
+/* Animation for text selection popup */
+.text-selection-popup {
+  transition: opacity 100ms ease;
+}
+
+/* Editor styles */
+.ProseMirror {
+  min-height: 300px;
+  padding: 1rem;
+  border-radius: 0.375rem;
+  outline: none;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.ProseMirror p {
+  margin-bottom: 1rem;
+}
+
+.ProseMirror > * + * {
+  margin-top: 0.75em;
+}
+
+/* Yellow highlight style */
+.highlight-yellow {
+  background-color: rgba(255, 255, 0, 0.3);
+  border-radius: 0.125rem;
+  padding: 0.125rem 0;
+}
+
+/* Text selection popup positioning */
+.text-selection-popup {
+  z-index: 100;
+}
+
+/* Highlight styles */
+.highlight-yellow {
+  background-color: var(--highlight-background);
+  padding: 0.1em 0;
+  border-radius: 0.2em;
+  cursor: pointer;
+}
+
+/* Headings */
+.ProseMirror h1 {
+  font-size: 2em;
+  margin: 0.67em 0;
+  font-weight: bold;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5em;
+  margin: 0.75em 0;
+  font-weight: bold;
+}
+
+.ProseMirror h3 {
+  font-size: 1.17em;
+  margin: 0.83em 0;
+  font-weight: bold;
+}
+
+/* Text Selection Popup */
+.text-selection-popup {
+  position: absolute;
+  z-index: 100;
+  background-color: white;
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  animation: popupFadeIn 0.2s ease-out;
+}
+
+@keyframes popupFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* List styles */
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+/* Code blocks */
+.ProseMirror pre {
+  background-color: #f3f4f6;
+  border-radius: 0.375rem;
+  padding: 0.75em 1em;
+  margin: 0.5em 0;
+  overflow-x: auto;
+  font-family: monospace;
+}
+
+/* Blockquotes */
+.ProseMirror blockquote {
+  border-left: 3px solid #e5e7eb;
+  padding-left: 1em;
+  margin: 0.5em 0;
+  font-style: italic;
+  color: #4b5563;
+}
+
+/* Editor Menu Bar Styles */
+.editor-menu-bar {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0.25rem;
+  gap: 0.25rem;
+}
+
+.editor-menu-bar button {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.editor-menu-bar button:hover {
+  background-color: #f3f4f6;
+}
+
+.editor-menu-bar button.is-active {
+  background-color: #f3f4f6;
+  font-weight: bold;
+}
+
+
+================================================
+File: app/layout.tsx
+================================================
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "AI Text Editor",
+  description: "A super cool text editor with AI capabilities powered by Google Gemini",
+  icons: {
+    icon: '/favicon.svg',
+  },
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        {children}
+      </body>
+    </html>
+  );
+}
+
+
+================================================
+File: app/page.tsx
+================================================
+import EditorContainer from './components/editor/core/EditorContainer';
+
+export default function Home() {
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4 md:p-8">
+      <div className="container mx-auto max-w-5xl">
+        <header className="max-w-4xl mx-auto mb-8 text-center">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-3">
+            AI-Enhanced Text Editor
+          </h1>
+          <p className="text-gray-600 md:text-lg max-w-2xl mx-auto">
+            A super cool text editor with AI capabilities powered by Google Gemini
+          </p>
+        </header>
+        
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <EditorContainer />
+        </div>
+        
+        <footer className="mt-8 text-center text-sm text-gray-500">
+          <p>Select text to use AI actions • <span className="text-indigo-500">Expand</span> • <span className="text-green-500">Summarize</span> • <span className="text-yellow-600">Rephrase</span> • <span className="text-purple-500">Revise</span></p>
+          <p className="mt-2">Keyboard shortcuts: Ctrl+E (Export), Ctrl+M (Model), Ctrl+H (History)</p>
+        </footer>
+      </div>
+    </main>
+  );
+}
+
+
+================================================
+File: app/api/history/route.ts
+================================================
+import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
+import type { EditEvent } from '@/app/services/historyService';
+import type { AIAction } from '@/app/services/geminiService';
+import type { GeminiModel } from '@/app/services/geminiService';
+
+const LOG_FILE_PATH = path.join(process.cwd(), 'edit-history.json');
+
+// Initialize the log file if it doesn't exist
+const initLogFile = async (): Promise<void> => {
+  try {
+    // Check if the file exists
+    if (!fs.existsSync(LOG_FILE_PATH)) {
+      // Create the file with an empty array
+      await fs.promises.writeFile(LOG_FILE_PATH, JSON.stringify([]));
+    }
+  } catch (error) {
+    console.error('Error initializing log file:', error);
+  }
+};
+
+// Get all edit history events from the server file
+const getServerHistoryEvents = async (): Promise<EditEvent[]> => {
+  try {
+    await initLogFile();
+    
+    const data = await fs.promises.readFile(LOG_FILE_PATH, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error('Error reading edit history from server:', error);
+    return [];
+  }
+};
+
+// Add a new edit event to the history file
+const addServerHistoryEvent = async (event: EditEvent): Promise<void> => {
+  try {
+    await initLogFile();
+    
+    // Read current history
+    const history = await getServerHistoryEvents();
+    
+    // Add new event
+    history.push(event);
+    
+    // Write updated history back to file
+    await fs.promises.writeFile(LOG_FILE_PATH, JSON.stringify(history, null, 2));
+  } catch (error) {
+    console.error('Error logging edit event to server:', error);
+    throw error;
+  }
+};
+
+// Server-side version of createEditEvent
+const serverCreateEditEvent = (
+  originalText: string,
+  newText: string,
+  action: string | AIAction,
+  additionalInstructions?: string,
+  modelName?: GeminiModel,
+  timestamp?: string
+): EditEvent => {
+  return {
+    timestamp: timestamp || new Date().toISOString(),
+    action: formatActionName(action),
+    originalText,
+    newText,
+    additionalInstructions,
+    modelName
+  };
+};
+
+// Format the action name - server-side implementation
+const formatActionName = (action: string | AIAction): string => {
+  if (typeof action === 'string') {
+    if (action.startsWith('AI_') || action.startsWith('MANUAL_')) {
+      return action;
+    }
+    return `AI_${action.toUpperCase()}`;
+  }
+  
+  // Handle AIAction enum
+  switch (action) {
+    case 'expand':
+      return 'AI_EXPAND';
+    case 'summarize':
+      return 'AI_SUMMARIZE';
+    case 'rephrase':
+      return 'AI_REPHRASE';
+    case 'revise':
+      return 'AI_REVISE';
+    default:
+      return `AI_ACTION`;
+  }
+};
+
+// GET /api/history - Get all edit history events
+export async function GET() {
+  try {
+    const history = await getServerHistoryEvents();
+    return NextResponse.json(history);
+  } catch (error) {
+    console.error('Error fetching edit history:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch edit history' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/history - Add a new edit event
+export async function POST(request: Request) {
+  try {
+    const data = await request.json();
+    const { timestamp, originalText, newText, action, additionalInstructions, modelName } = data;
+    
+    // Validate required fields
+    if (!originalText || !newText || !action) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+    
+    // Create and save the event using server-side implementation
+    const event = serverCreateEditEvent(originalText, newText, action, additionalInstructions, modelName, timestamp);
+    await addServerHistoryEvent(event);
+    
+    return NextResponse.json({ success: true, event });
+  } catch (error) {
+    console.error('Error adding edit event:', error);
+    return NextResponse.json(
+      { error: 'Failed to add edit event' },
+      { status: 500 }
+    );
+  }
+} 
+
+================================================
+File: app/components/EditHistoryViewer.tsx
+================================================
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { EditEvent } from '../services/historyService';
+
+interface EditHistoryViewerProps {
+  onClose: () => void;
+}
+
+const ITEMS_PER_PAGE = 10; // Number of history items to display per page
+
+// Simple hash function to create a more reliable hash for deduplication
+const hashString = (str: string): string => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash.toString();
+};
+
+const EditHistoryViewer: React.FC<EditHistoryViewerProps> = ({ onClose }) => {
+  const [history, setHistory] = useState<EditEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Reset to first page when filter changes
+    setCurrentPage(1);
+  }, [filter]);
+
+  useEffect(() => {
+    // Function to load history from localStorage and file API in development
+    const loadHistory = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Load from localStorage
+        let combinedHistory: EditEvent[] = [];
+        const localHistoryString = localStorage.getItem('editHistory');
+        
+        if (localHistoryString) {
+          combinedHistory = JSON.parse(localHistoryString);
+        }
+        
+        // In development environment, also fetch from file API
+        const isDevelopment = 
+          window.location.hostname === 'localhost' || 
+          window.location.hostname === '127.0.0.1' ||
+          window.location.hostname.includes('.local');
+        
+        if (isDevelopment) {
+          try {
+            const fileResponse = await fetch('/api/history');
+            
+            if (fileResponse.ok) {
+              const fileHistory = await fileResponse.json();
+              
+              // Combine and deduplicate by comparing timestamps + actions + content hash
+              const seen = new Set();
+              combinedHistory = [...combinedHistory, ...fileHistory].filter(event => {
+                // Create a unique key for this event based on all relevant properties
+                // Include timestamp, action, original text (fully hashed), and new text length for uniqueness
+                const hash = `${event.timestamp}-${event.action}-${hashString(event.originalText)}-${event.newText.length}`;
+                if (seen.has(hash)) return false;
+                seen.add(hash);
+                return true;
+              });
+            } else {
+              setError('Could not fetch history from file API.');
+            }
+          } catch (fileError) {
+            console.error('Error fetching from file API:', fileError);
+            setError('Error connecting to history API.');
+          }
+        }
+        
+        // Sort by timestamp, newest first
+        combinedHistory.sort((a, b) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        
+        setHistory(combinedHistory);
+      } catch (error) {
+        console.error('Error loading history:', error);
+        setError('Failed to load edit history.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadHistory();
+  }, []);
+
+  // Filter history based on search term
+  const filteredHistory = history.filter(event => 
+    event.originalText.toLowerCase().includes(filter.toLowerCase()) ||
+    event.newText.toLowerCase().includes(filter.toLowerCase()) ||
+    event.action.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  // Paginate the filtered history
+  const totalPages = Math.ceil(filteredHistory.length / ITEMS_PER_PAGE);
+  const paginatedHistory = filteredHistory.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Format date for display
+  const formatDate = (isoString: string) => {
+    const date = new Date(isoString);
+    return date.toLocaleString();
+  };
+
+  // Truncate text for display
+  const truncateText = (text: string, maxLength = 100) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  };
+
+  // Get color for action type
+  const getActionColor = (action: string) => {
+    if (action.includes('EXPAND')) return 'bg-blue-100 text-blue-800';
+    if (action.includes('SUMMARIZE')) return 'bg-green-100 text-green-800';
+    if (action.includes('REPHRASE')) return 'bg-yellow-100 text-yellow-800';
+    if (action.includes('REVISE')) return 'bg-purple-100 text-purple-800';
+    if (action.includes('MANUAL_ADD')) return 'bg-indigo-100 text-indigo-800';
+    if (action.includes('MANUAL_DELETE')) return 'bg-red-100 text-red-800';
+    return 'bg-gray-100 text-gray-800';
+  };
+  
+  // Get a user-friendly model name
+  const getModelLabel = (modelName: string): string => {
+    if (modelName.includes('pro')) return 'Pro';
+    if (modelName.includes('flash-lite')) return 'Flash Lite';
+    if (modelName.includes('flash')) return 'Flash';
+    return modelName; // Fallback to the full name if none match
+  };
+  
+  // Export history to JSON file
+  const exportHistory = () => {
+    // Export either filtered history or full history based on current filter
+    const dataToExport = filter ? filteredHistory : history;
+    
+    // Create a formatted JSON string with indentation for readability
+    const jsonString = JSON.stringify(dataToExport, null, 2);
+    
+    // Set up the download
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `edit-history-export-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Handle page navigation
+  const goToPage = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+  };
+
+  // Generate pagination buttons
+  const renderPaginationButtons = () => {
+    if (totalPages <= 1) return null;
+
+    // For smaller paginations, show all pages
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+        <button
+          key={page}
+          onClick={() => goToPage(page)}
+          className={`px-3 py-1 mx-1 rounded ${
+            page === currentPage
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+          }`}
+        >
+          {page}
+        </button>
+      ));
+    }
+
+    // For larger paginations, use ellipsis
+    const pages = [];
+    
+    // Always show first page
+    pages.push(
+      <button
+        key={1}
+        onClick={() => goToPage(1)}
+        className={`px-3 py-1 mx-1 rounded ${
+          currentPage === 1
+            ? 'bg-blue-500 text-white'
+            : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+        }`}
+      >
+        1
+      </button>
+    );
+
+    // Add ellipsis if current page is far from the start
+    if (currentPage > 3) {
+      pages.push(
+        <span key="ellipsis-start" className="px-2">
+          ...
+        </span>
+      );
+    }
+
+    // Show pages around current page
+    const rangeStart = Math.max(2, currentPage - 1);
+    const rangeEnd = Math.min(totalPages - 1, currentPage + 1);
+    
+    for (let i = rangeStart; i <= rangeEnd; i++) {
+      pages.push(
+        <button
+          key={i}
+          onClick={() => goToPage(i)}
+          className={`px-3 py-1 mx-1 rounded ${
+            i === currentPage
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+          }`}
+        >
+          {i}
+        </button>
+      );
+    }
+
+    // Add ellipsis if current page is far from the end
+    if (currentPage < totalPages - 2) {
+      pages.push(
+        <span key="ellipsis-end" className="px-2">
+          ...
+        </span>
+      );
+    }
+
+    // Always show last page
+    if (totalPages > 1) {
+      pages.push(
+        <button
+          key={totalPages}
+          onClick={() => goToPage(totalPages)}
+          className={`px-3 py-1 mx-1 rounded ${
+            currentPage === totalPages
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+          }`}
+        >
+          {totalPages}
+        </button>
+      );
+    }
+
+    return pages;
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] flex flex-col">
+        <div className="p-4 border-b flex justify-between items-center">
+          <h2 className="text-xl font-semibold">Edit History</h2>
+          <button 
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <div className="p-4 border-b flex justify-between items-center">
+          <input
+            type="text"
+            placeholder="Filter history..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
+          
+          <button
+            onClick={exportHistory}
+            className="ml-2 px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center gap-1"
+            title="Export history as JSON"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            Export JSON
+          </button>
+        </div>
+        
+        <div className="bg-blue-50 p-3 text-sm">
+          <p className="text-blue-700 mb-1 font-medium">About Edit History Storage:</p>
+          <p className="text-blue-600">
+            • Your edit history is stored in your browser&apos;s localStorage
+            <br />
+            {window.location.hostname === 'localhost' || 
+             window.location.hostname === '127.0.0.1' || 
+             window.location.hostname.includes('.local') ? (
+               <>
+                 • In development mode, history is also saved to a local file (<code className="bg-blue-100 px-1 rounded">edit-history.json</code>)
+                 <br />
+               </>
+             ) : null}
+            • You can export your history to a JSON file for backup
+          </p>
+        </div>
+        
+        <div className="overflow-y-auto flex-grow">
+          {loading ? (
+            <div className="p-8 text-center text-gray-500">Loading history...</div>
+          ) : error ? (
+            <div className="p-4 bg-yellow-50 text-yellow-700 text-sm border-l-4 border-yellow-400 mb-4">
+              {error} Some items may be missing.
+            </div>
+          ) : filteredHistory.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              {filter ? 'No matching history entries found.' : 'No edit history yet.'}
+            </div>
+          ) : (
+            <div className="divide-y">
+              {paginatedHistory.map((event, index) => (
+                <div key={index} className="p-4 hover:bg-gray-50">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded ${getActionColor(event.action)}`}
+                      >
+                        {event.action.replace('AI_', '').replace('MANUAL_', 'MANUAL ')}
+                      </span>
+                      {event.modelName && (
+                        <span className="ml-2 text-xs px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded">
+                          {getModelLabel(event.modelName)}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-500 ml-auto">
+                      {formatDate(event.timestamp)}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Original:</div>
+                      <div className="bg-red-50 p-2 rounded text-sm">
+                        {truncateText(event.originalText)}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Modified:</div>
+                      <div className="bg-green-50 p-2 rounded text-sm">
+                        {truncateText(event.newText)}
+                      </div>
+                    </div>
+                    
+                    {event.additionalInstructions && (
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Instructions:</div>
+                        <div className="bg-gray-50 p-2 rounded text-sm italic">
+                          {event.additionalInstructions}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {/* Pagination Controls */}
+        {!loading && filteredHistory.length > 0 && (
+          <div className="p-4 border-t flex justify-center items-center">
+            <button
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1 mr-2 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              &larr; Prev
+            </button>
+            
+            <div className="flex">{renderPaginationButtons()}</div>
+            
+            <button
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 ml-2 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next &rarr;
+            </button>
+          </div>
+        )}
+        
+        <div className="p-4 border-t flex justify-between items-center">
+          {filteredHistory.length > 0 && (
+            <div className="text-sm text-gray-500">
+              Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredHistory.length)} of {filteredHistory.length} entries
+            </div>
+          )}
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default EditHistoryViewer; 
+
+================================================
+File: app/components/EditorMenuBar.tsx
+================================================
+"use client";
+
+import React from 'react';
+import { Editor } from '@tiptap/react';
+
+type EditorMenuBarProps = {
+  editor: Editor;
+};
+
+const EditorMenuBar: React.FC<EditorMenuBarProps> = ({ editor }) => {
+  if (!editor) {
+    return null;
+  }
+
+  return (
+    <div className="menubar py-2 px-1 flex flex-wrap gap-1 justify-center">
+      <button
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+          editor.isActive('bold') ? 'bg-gray-200 text-gray-900' : 'text-gray-700'
+        }`}
+        title="Bold (Ctrl+B)"
+      >
+        <span className="font-bold">B</span>
+      </button>
+
+      <button
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+          editor.isActive('italic') ? 'bg-gray-200 text-gray-900' : 'text-gray-700'
+        }`}
+        title="Italic (Ctrl+I)"
+      >
+        <span className="italic">I</span>
+      </button>
+
+      <button
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+          editor.isActive('underline') ? 'bg-gray-200 text-gray-900' : 'text-gray-700'
+        }`}
+        title="Underline (Ctrl+U)"
+      >
+        <span className="underline">U</span>
+      </button>
+
+      <div className="border-r mx-1 h-6 bg-gray-300"></div>
+
+      <button
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+          editor.isActive('heading', { level: 1 }) ? 'bg-gray-200 text-gray-900' : 'text-gray-700'
+        }`}
+        title="Heading 1 (Ctrl+Alt+1)"
+      >
+        H1
+      </button>
+
+      <button
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+          editor.isActive('heading', { level: 2 }) ? 'bg-gray-200 text-gray-900' : 'text-gray-700'
+        }`}
+        title="Heading 2 (Ctrl+Alt+2)"
+      >
+        H2
+      </button>
+
+      <button
+        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+          editor.isActive('heading', { level: 3 }) ? 'bg-gray-200 text-gray-900' : 'text-gray-700'
+        }`}
+        title="Heading 3 (Ctrl+Alt+3)"
+      >
+        H3
+      </button>
+
+      <div className="border-r mx-1 h-6 bg-gray-300"></div>
+
+      <button
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+          editor.isActive('bulletList') ? 'bg-gray-200 text-gray-900' : 'text-gray-700'
+        }`}
+        title="Bullet List (Ctrl+Shift+8)"
+      >
+        • List
+      </button>
+
+      <button
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+          editor.isActive('orderedList') ? 'bg-gray-200 text-gray-900' : 'text-gray-700'
+        }`}
+        title="Ordered List (Ctrl+Shift+7)"
+      >
+        1. List
+      </button>
+
+      <div className="border-r mx-1 h-6 bg-gray-300"></div>
+
+      <button
+        onClick={() => editor.chain().focus().undo().run()}
+        disabled={!editor.can().undo()}
+        className={`p-2 rounded hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:hover:bg-transparent text-gray-700`}
+        title="Undo (Ctrl+Z)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+        </svg>
+      </button>
+
+      <button
+        onClick={() => editor.chain().focus().redo().run()}
+        disabled={!editor.can().redo()}
+        className={`p-2 rounded hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:hover:bg-transparent text-gray-700`}
+        title="Redo (Ctrl+Y)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="m15 15 6-6m0 0-6-6m6 6H9a6 6 0 0 0 0 12h3" />
+        </svg>
+      </button>
+    </div>
+  );
+};
+
+export default EditorMenuBar; 
+
+================================================
+File: app/components/TextSelectionPopup.tsx
+================================================
+"use client";
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Editor } from '@tiptap/react';
+import { transformText, logEditHistory, AIAction, GeminiModel, DEFAULT_MODEL, countWords, getWordLimit } from '../services/geminiService';
+
+// Type for action history item
+interface ActionHistoryItem {
+  action: AIAction;
+  instructions: string;
+  timestamp: number;
+  modelName?: GeminiModel;
+}
+
+type TextSelectionPopupProps = {
+  text: string;
+  position: { x: number; y: number };
+  editor: Editor;
+  className?: string;
+  actionHistory?: ActionHistoryItem[];
+  onActionPerformed?: (action: AIAction, instructions: string, modelName: GeminiModel) => void;
+  modelName?: GeminiModel;
+  isVisible?: boolean;
+};
+
+const TextSelectionPopup: React.FC<TextSelectionPopupProps> = ({
+  text,
+  position,
+  editor,
+  className = '',
+  actionHistory = [],
+  onActionPerformed,
+  modelName = DEFAULT_MODEL,
+  isVisible = false,
+}) => {
+  const [additionalInstructions, setAdditionalInstructions] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isOverTokenLimit, setIsOverTokenLimit] = useState(false);
+  const [localText, setLocalText] = useState(text);
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  // Update local text when the text prop changes
+  useEffect(() => {
+    setLocalText(text);
+  }, [text]);
+
+  // Log props for debugging in production
+  useEffect(() => {
+    console.log('TextSelectionPopup props:', {
+      hasText: !!text,
+      textLength: text?.length || 0,
+      position,
+      editorExists: !!editor,
+      modelName,
+      isVisible
+    });
+  }, [text, position, editor, modelName, isVisible]);
+
+  // Check if document exceeds word limit on mount and when visible
+  useEffect(() => {
+    if (!editor || !isVisible) return;
+    
+    const checkWordLimit = () => {
+      const documentContent = editor.getHTML();
+      const documentWords = countWords(documentContent);
+      const wordLimit = getWordLimit();
+      
+      const isOverLimit = documentWords > wordLimit;
+      setIsOverTokenLimit(isOverLimit);
+      
+      // Set error message if over limit
+      if (isOverLimit) {
+        const percentage = Math.round((documentWords / wordLimit) * 100);
+        setErrorMessage(
+          `Text length exceeds word limit: ${documentWords.toLocaleString()} / ${wordLimit.toLocaleString()} (${percentage}%)
+          Please reduce your text length.`
+        );
+      } else {
+        // Clear error message if we're back under the limit
+        if (errorMessage && errorMessage.includes('word limit')) {
+          setErrorMessage(null);
+        }
+      }
+    };
+    
+    // Check immediately when popup becomes visible
+    checkWordLimit();
+    
+    // Also set up an interval to check periodically while popup is open
+    const intervalId = setInterval(checkWordLimit, 2000);
+    
+    return () => clearInterval(intervalId);
+  }, [editor, isVisible, errorMessage]);
+
+  // Position the popup and ensure it's within viewport
+  useEffect(() => {
+    const popup = popupRef.current;
+    if (!popup || !isVisible) return;
+
+      // Get popup dimensions
+      const rect = popup.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+    // Get current position from the inline styles
+    const currentX = position.x - (position.x > window.innerWidth / 2 ? 260 : 0);
+    const currentY = position.y + 6;
+    
+    // Simple boundary checking to keep popup within viewport
+    if (currentX + rect.width > viewportWidth) {
+      popup.style.left = `${viewportWidth - rect.width - 10}px`;
+    }
+    
+    if (currentX < 10) {
+      popup.style.left = '10px';
+    }
+    
+    if (currentY + rect.height > viewportHeight) {
+      popup.style.top = `${viewportHeight - rect.height - 10}px`;
+    }
+    
+    if (currentY < 10) {
+      popup.style.top = '10px';
+    }
+    
+    // Ensure high z-index
+    popup.style.zIndex = '9999';
+  }, [position, isVisible]);
+
+  const handleAIAction = async (action: AIAction) => {
+    setIsLoading(true);
+    setErrorMessage(null); // Clear any previous errors
+    
+    // Signal to parent that action is starting
+    if (onActionPerformed) {
+      // Special marker to indicate action is starting
+      onActionPerformed(action, 'STARTING', modelName);
+    }
+    
+    try {
+      // Get the full document content for better context
+      const documentContent = editor.getHTML();
+      
+      // Show a visual indicator in the editor to help user understand processing is happening
+      const { from, to } = editor.state.selection;
+      const originalText = editor.state.doc.textBetween(from, to, ' ');
+      
+      // Add a processing indicator
+      editor.commands.setTextSelection({ from, to });
+      
+      console.log(`Processing with model: ${modelName}`);
+      
+      // Transform the text using the Gemini API
+      const result = await transformText({
+        text: localText,
+        action,
+        additionalInstructions: additionalInstructions || undefined,
+        fullDocument: documentContent
+      }, modelName);
+      
+      if (result) {
+        // Replace the selected text with the transformed text
+        editor.commands.deleteSelection();
+        const insertPos = editor.state.selection.from;
+        editor.commands.insertContent(result);
+        
+        // Calculate the new selection range based on the inserted content length
+        const newFrom = insertPos;
+        const newTo = insertPos + result.length;
+        
+        // Set selection to the entire transformed text
+        editor.commands.setTextSelection({ from: newFrom, to: newTo });
+        
+        // Re-highlight the transformed text instead of clearing highlights
+        // This ensures the text stays highlighted for future actions
+        const extension = editor.extensionManager.extensions.find(
+          ext => ext.name === 'persistentHighlight'
+        );
+        
+        if (extension) {
+          // Clear existing highlights first
+          extension.storage.highlights = [];
+          
+          // Add new highlight for the transformed text
+          extension.storage.highlights.push({
+            from: newFrom,
+            to: newTo,
+            class: 'highlight-yellow'
+          });
+          
+          // Force redraw
+          editor.view.dispatch(editor.state.tr);
+        }
+        
+        // Explicitly log the edit to history with all details
+        logEditHistory(
+          originalText,        // Original text before transformation
+          result,              // Transformed text
+          action,              // The AI action performed
+          additionalInstructions || undefined,
+          modelName            // The model used
+        );
+        
+        // Log to action history for the UI
+        if (onActionPerformed) {
+          console.log('Adding to action history in UI:', action, additionalInstructions, modelName);
+          onActionPerformed(action, additionalInstructions || '', modelName);
+        }
+        
+        // After successful action, update the text state to match the new selection
+        // This will keep the popup relevant to the new transformed text
+        const newSelectedText = editor.state.doc.textBetween(newFrom, newTo, ' ');
+        setLocalText(newSelectedText);
+      } else {
+        console.error('Transformation failed: Empty result');
+        setErrorMessage('Error: Failed to transform text');
+      }
+    } catch (error) {
+      console.error('Error during text transformation:', error);
+      
+      // Check if it's a word limit error
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('word limit')) {
+        // Display a more user-friendly message for word limit errors
+        const wordLimit = getWordLimit();
+        const documentContent = editor.getHTML();
+        const documentWords = countWords(documentContent);
+        
+        setErrorMessage(`Document length exceeds the word limit (${documentWords} > ${wordLimit}). 
+          Please reduce your document size or increase the limit in environment variables.`);
+      } else {
+        setErrorMessage('Failed to process text. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+      
+      // Clear additional instructions after action
+      setAdditionalInstructions('');
+      
+      // Don't close the popup so it's ready for a new action
+      setShowHistory(false);
+      
+      // Signal to parent that action is complete, if it wasn't already done
+      if (onActionPerformed) {
+        // Special marker to indicate action is complete
+        onActionPerformed(action, 'COMPLETED', modelName);
+      }
+    }
+  };
+  
+  // Apply a historical action
+  const applyHistoricalAction = (item: ActionHistoryItem) => {
+    setAdditionalInstructions(item.instructions);
+    handleAIAction(item.action);
+  };
+  
+  // Get text label for action type
+  const getActionLabel = (action: AIAction): string => {
+    switch(action) {
+      case 'expand': return 'Expand';
+      case 'summarize': return 'Summarize';
+      case 'rephrase': return 'Rephrase';
+      case 'revise': return 'Revise';
+      default: return action;
+    }
+  };
+  
+  // Get color class for action type
+  const getActionColor = (action: AIAction): string => {
+    switch(action) {
+      case 'expand': return 'bg-indigo-500 hover:bg-indigo-600';
+      case 'summarize': return 'bg-green-500 hover:bg-green-600';
+      case 'rephrase': return 'bg-yellow-500 hover:bg-yellow-600';
+      case 'revise': return 'bg-purple-500 hover:bg-purple-600';
+      default: return 'bg-gray-500 hover:bg-gray-600';
+    }
+  };
+
+  // Prevent mousedown events from bubbling up when clicking inside the popup
+  // This helps prevent the popup from closing when clicking inside input fields
+  const handlePopupMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // More aggressive prevention of event propagation
+    if (e.nativeEvent) {
+      e.nativeEvent.stopImmediatePropagation?.();
+      e.nativeEvent.stopPropagation?.();
+      e.nativeEvent.preventDefault?.();
+    }
+    console.log('Popup mousedown intercepted and stopped');
+  };
+
+  // Prevent all events from bubbling up from the popup
+  const handlePopupEvent = (e: React.SyntheticEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    // More aggressive prevention of event propagation
+    if (e.nativeEvent) {
+      e.nativeEvent.stopImmediatePropagation?.();
+      e.nativeEvent.stopPropagation?.();
+      e.nativeEvent.preventDefault?.();
+    }
+    console.log('Popup event intercepted and stopped');
+  };
+
+  // Handle input field focus and interaction
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    // Remove preventDefault to allow focus
+    if (e.nativeEvent) {
+      e.nativeEvent.stopImmediatePropagation?.();
+      e.nativeEvent.stopPropagation?.();
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    // Remove preventDefault to allow input changes
+    if (e.nativeEvent) {
+      e.nativeEvent.stopImmediatePropagation?.();
+      e.nativeEvent.stopPropagation?.();
+    }
+    setAdditionalInstructions(e.target.value);
+  };
+
+  const handleInputClick = (e: React.MouseEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    // Remove preventDefault to allow clicking
+    if (e.nativeEvent) {
+      e.nativeEvent.stopImmediatePropagation?.();
+      e.nativeEvent.stopPropagation?.();
+    }
+  };
+
+  // Get button class with disabled state if over token limit
+  const getButtonClass = (baseClass: string): string => {
+    if (isOverTokenLimit) {
+      return `${baseClass.split(' ')[0]} bg-opacity-50 cursor-not-allowed text-white px-2.5 py-1.5 rounded-md text-sm font-medium shadow-sm`;
+    }
+    return baseClass;
+  };
+
+  if (!isVisible) return null;
+
+  return (
+    <div
+      className={`${className} text-selection-popup p-2 rounded-lg shadow-lg min-w-[260px] max-w-[320px]`}
+      style={{ 
+        position: 'absolute',
+        left: `${position.x - (position.x > window.innerWidth / 2 ? 260 : 0)}px`,
+        top: `${position.y + 6}px`,
+        pointerEvents: 'auto'
+      }}
+      onMouseDown={handlePopupMouseDown}
+      onClick={handlePopupEvent}
+      onMouseUp={handlePopupEvent}
+      onMouseMove={handlePopupEvent}
+      ref={popupRef}
+    >
+      <div 
+        className="bg-white shadow-lg rounded-lg border border-gray-200 overflow-hidden w-64"
+        style={{ pointerEvents: 'auto' }} // Re-enable pointer events for the content
+      >
+        <div className="p-3 space-y-3">
+          {errorMessage && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md text-xs mb-2">
+              {errorMessage}
+            </div>
+          )}
+          
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={(e) => {
+                handlePopupEvent(e);
+                if (!isOverTokenLimit) handleAIAction('expand');
+              }}
+              className={getButtonClass("bg-indigo-500 text-white px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-indigo-600 shadow-sm transition-colors")}
+              disabled={isLoading || isOverTokenLimit}
+            >
+              Expand
+            </button>
+            <button
+              onClick={(e) => {
+                handlePopupEvent(e);
+                if (!isOverTokenLimit) handleAIAction('summarize');
+              }}
+              className={getButtonClass("bg-green-500 text-white px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-green-600 shadow-sm transition-colors")}
+              disabled={isLoading || isOverTokenLimit}
+            >
+              Summarize
+            </button>
+            <button
+              onClick={(e) => {
+                handlePopupEvent(e);
+                if (!isOverTokenLimit) handleAIAction('rephrase');
+              }}
+              className={getButtonClass("bg-yellow-500 text-white px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-yellow-600 shadow-sm transition-colors")}
+              disabled={isLoading || isOverTokenLimit}
+            >
+              Rephrase
+            </button>
+            <button
+              onClick={(e) => {
+                handlePopupEvent(e);
+                if (!isOverTokenLimit) handleAIAction('revise');
+              }}
+              className={getButtonClass("bg-purple-500 text-white px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-purple-600 shadow-sm transition-colors")}
+              disabled={isLoading || isOverTokenLimit}
+            >
+              Revise
+            </button>
+            
+            {actionHistory.length > 0 && (
+              <button
+                onClick={(e) => {
+                  handlePopupEvent(e);
+                  setShowHistory(!showHistory);
+                }}
+                className="bg-gray-100 text-gray-700 px-2 py-1.5 rounded-md text-sm hover:bg-gray-200 shadow-sm border border-gray-200 transition-colors"
+                disabled={isLoading}
+                title="Show recent actions"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+              </button>
+            )}
+          </div>
+          
+          {showHistory && actionHistory.length > 0 && (
+            <div className="bg-gray-50 rounded-md p-2 mb-1 max-h-36 overflow-y-auto border border-gray-100">
+              <p className="text-xs text-gray-500 mb-2 px-1 font-medium">Recent actions:</p>
+              {actionHistory.map((item, index) => (
+                <button
+                  key={index}
+                  onClick={(e) => {
+                    handlePopupEvent(e);
+                    applyHistoricalAction(item);
+                  }}
+                  className={`w-full text-left mb-1.5 p-1.5 rounded-md text-xs ${getActionColor(item.action)} text-white flex justify-between items-center shadow-sm`}
+                >
+                  <span className="font-medium">{getActionLabel(item.action)}</span>
+                  {item.instructions && (
+                    <span className="truncate max-w-[120px] text-white/80 text-[10px]">
+                      {item.instructions}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+          
+            <input
+              type="text"
+              placeholder="Additional instructions (optional)"
+              value={additionalInstructions}
+            onChange={handleInputChange}
+            onFocus={handleInputFocus}
+            onClick={handleInputClick}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              // Don't prevent default to allow focus
+              if (e.nativeEvent) {
+                e.nativeEvent.stopImmediatePropagation?.();
+                e.nativeEvent.stopPropagation?.();
+              }
+              console.log('Input field mousedown intercepted');
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+            disabled={isLoading || isOverTokenLimit}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TextSelectionPopup; 
+
+================================================
+File: app/components/TokenUsageDisplay.tsx
+================================================
+"use client";
+
+import React, { useEffect, useState } from 'react';
+import { Editor } from '@tiptap/react';
+import { countWords, getWordLimit } from '../services/geminiService';
+
+interface WordUsageDisplayProps {
+  editor: Editor | null;
+  className?: string;
+}
+
+const TokenUsageDisplay: React.FC<WordUsageDisplayProps> = ({ 
+  editor, 
+  className = '' 
+}) => {
+  const [wordCount, setWordCount] = useState(0);
+  const [wordLimit, setWordLimit] = useState(getWordLimit());
+  const [isNearLimit, setIsNearLimit] = useState(false);
+  const [isOverLimit, setIsOverLimit] = useState(false);
+  
+  // Refresh word limit from environment
+  useEffect(() => {
+    // Check for word limit changes every 5 seconds
+    const intervalId = setInterval(() => {
+      const currentLimit = getWordLimit();
+      if (currentLimit !== wordLimit) {
+        setWordLimit(currentLimit);
+      }
+    }, 5000);
+    
+    return () => clearInterval(intervalId);
+  }, [wordLimit]);
+  
+  // Update word count when editor content changes
+  useEffect(() => {
+    if (!editor) return;
+    
+    const updateWordCount = () => {
+      const content = editor.getHTML();
+      const count = countWords(content);
+      setWordCount(count);
+      
+      // Check if we're approaching the limit (80% or more)
+      setIsNearLimit(count >= wordLimit * 0.8 && count < wordLimit);
+      setIsOverLimit(count >= wordLimit);
+    };
+    
+    // Initial count
+    updateWordCount();
+    
+    // Subscribe to editor updates
+    const handleUpdate = () => {
+      updateWordCount();
+    };
+    
+    editor.on('update', handleUpdate);
+    
+    return () => {
+      editor.off('update', handleUpdate);
+    };
+  }, [editor, wordLimit]);
+  
+  // Get the appropriate color based on word usage
+  const getStatusColor = () => {
+    if (isOverLimit) return 'text-red-600';
+    if (isNearLimit) return 'text-amber-600';
+    return 'text-gray-600';
+  };
+  
+  // Get progress bar color
+  const getProgressBarColor = () => {
+    if (isOverLimit) return 'bg-red-500';
+    if (isNearLimit) return 'bg-amber-500';
+    return 'bg-blue-500';
+  };
+  
+  // Only show the word count when approaching or exceeding the limit
+  if (!isNearLimit && !isOverLimit) {
+    return null;
+  }
+  
+  const percentage = Math.min(Math.round((wordCount / wordLimit) * 100), 100);
+  
+  return (
+    <div className={`flex flex-col ${className}`}>
+      <div className={`flex items-center text-xs ${getStatusColor()} mb-1`}>
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          viewBox="0 0 24 24" 
+          fill="currentColor" 
+          className="w-3.5 h-3.5 mr-1"
+        >
+          <path 
+            fillRule="evenodd" 
+            d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 0 0 3 3h15a.75.75 0 0 0 0-1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V4.875C3.75 4.666 3.917 4.5 4.125 4.5H19.5c.208 0 .375.166.375.375v4.5a.75.75 0 0 0 1.5 0v-4.5C21.375 3.839 20.535 3 19.5 3h-15Z" 
+            clipRule="evenodd" 
+          />
+          <path 
+            fillRule="evenodd" 
+            d="M6 6.75A.75.75 0 0 1 6.75 6h.75a.75.75 0 0 1 0 1.5h-.75A.75.75 0 0 1 6 6.75Zm4.5 0a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1-.75-.75ZM6 9.75A.75.75 0 0 1 6.75 9h.75a.75.75 0 0 1 0 1.5h-.75A.75.75 0 0 1 6 9.75Zm4.5 0a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1-.75-.75ZM6 12.75a.75.75 0 0 1 .75-.75h.75a.75.75 0 0 1 0 1.5h-.75a.75.75 0 0 1-.75-.75Zm4.5 0a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1-.75-.75ZM6 15.75a.75.75 0 0 1 .75-.75h.75a.75.75 0 0 1 0 1.5h-.75a.75.75 0 0 1-.75-.75Zm4.5 0a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1-.75-.75Z" 
+            clipRule="evenodd" 
+          />
+        </svg>
+        <span>
+          {isOverLimit ? (
+            <strong>{wordCount.toLocaleString()} / {wordLimit.toLocaleString()} words ({percentage}%)</strong>
+          ) : (
+            <span>{wordCount.toLocaleString()} / {wordLimit.toLocaleString()} words ({percentage}%)</span>
+          )}
+        </span>
+      </div>
+      
+      {/* Progress bar */}
+      <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+        <div 
+          className={`${getProgressBarColor()} h-1.5 transition-all duration-300 ease-in-out`}
+          style={{ width: `${percentage}%` }}
+        ></div>
+      </div>
+    </div>
+  );
+};
+
+export default TokenUsageDisplay; 
+
+================================================
+File: app/components/editor/README.md
+================================================
+# Editor Component Refactoring
+
+This directory contains the refactored components for the text editor. The original monolithic `Editor.tsx` component has been broken down into smaller, more maintainable pieces.
+
+## Directory Structure
+
+- `/core` - Core editor components
+- `/extensions` - Custom Tiptap extensions
+- `/hooks` - Custom React hooks for editor functionality
+- `/ui` - UI components for the editor
+
+## Components
+
+### Extensions
+
+- `PersistentHighlight.tsx` - A custom Tiptap extension for persistent text highlighting
+
+### Hooks
+
+- `useActionHistory.ts` - Hook for managing action history
+- `useEditorInitialization.ts` - Hook for initializing the editor with extensions
+- `useExportMenu.ts` - Hook for managing export functionality
+- `useModelSelection.ts` - Hook for managing model selection
+- `useSelectionHandling.ts` - Hook for handling text selection
+- `useTextChangeTracking.ts` - Hook for tracking text changes
+
+### UI Components
+
+- `ExportMenu.tsx` - Menu for exporting content in different formats
+- `ModelSelector.tsx` - Component for selecting AI models
+
+## Types
+
+Types have been moved to `/app/types/editor.types.ts` for better organization.
+
+## Utilities
+
+Utility functions have been moved to:
+- `/app/utils/highlightUtils.ts` - Utilities for managing highlights
+- `/app/utils/selectionUtils.ts` - Utilities for handling text selection
+
+## Usage
+
+The refactored components can be used to build a more maintainable and extensible editor. The next step is to create a new `EditorContainer.tsx` component that uses these refactored pieces. 
+
+================================================
+File: app/components/editor/core/EditorContainer.tsx
+================================================
+"use client";
+
+import React, { useCallback, useEffect, useState } from 'react';
+import { EditorContent } from '@tiptap/react';
+import { useEditorInitialization } from '../hooks/useEditorInitialization';
+import { useSelectionHandling } from '../hooks/useSelectionHandling';
+import { useActionHistory } from '../hooks/useActionHistory';
+import { useTextChangeTracking } from '../hooks/useTextChangeTracking';
+import { useExportMenu } from '../hooks/useExportMenu';
+import { useModelSelection } from '../hooks/useModelSelection';
+import { getSelectionRect } from '../../../utils/selectionUtils';
+import { getSelectedText } from '../../../utils/selectionUtils';
+import { clearAllHighlights, highlightSelection } from '../../../utils/highlightUtils';
+import ExportMenu from '../ui/ExportMenu';
+import TextSelectionPopup from '../../../components/TextSelectionPopup';
+import EditHistoryViewer from '../../../components/EditHistoryViewer';
+import EditorMenuBar from '../../../components/EditorMenuBar';
+import TokenUsageDisplay from '../../../components/TokenUsageDisplay';
+import { DEFAULT_MODEL, GeminiModel, AIAction } from '../../../services/geminiService';
+
+const EditorContainer: React.FC = () => {
+  // State for UI elements
+  const [showPopup, setShowPopup] = useState(false);
+  const [selectionCoords, setSelectionCoords] = useState<{ x: number; y: number } | null>(null);
+  const [selectedText, setSelectedText] = useState<string | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-2.0-flash');
+  const [isMonospaceFont, setIsMonospaceFont] = useState(false);
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
+  
+  // Initialize editor
+  const { editor, isEditorReady, getContent, setContent } = useEditorInitialization({
+    isMonospaceFont
+  });
+  
+  // Use custom hooks
+  const { actionHistory, addActionToHistory, clearActionHistory } = useActionHistory();
+  const { startTracking, stopTracking, ignoreNextChange } = useTextChangeTracking({
+    editor,
+    onContentChange: (content) => {
+      console.log('Content changed:', content.substring(0, 50) + '...');
+    }
+  });
+  const { showExportMenu, toggleExportMenu, closeExportMenu, exportAsHTML, exportAsMarkdown, exportAsText } = useExportMenu({ editor });
+  const { showModelSelector, closeModelSelector, handleModelSelect: originalHandleModelSelect } = useModelSelection(DEFAULT_MODEL);
+  
+  // Handle AI action performed
+  const handleActionPerformed = useCallback((action: AIAction, instructions: string, modelName: GeminiModel) => {
+    // If action is empty, it's a signal to close the popup, not an actual action
+    if (!action) {
+      setShowPopup(false);
+      return;
+    }
+    
+    // Handle special markers
+    if (instructions === 'STARTING') {
+      // Set AI processing flag when action starts
+      setIsAiProcessing(true);
+      return;
+    } else if (instructions === 'COMPLETED') {
+      // Clear AI processing flag when action completes
+      setTimeout(() => {
+        setIsAiProcessing(false);
+      }, 500); // Small delay to ensure UI updates properly
+      return;
+    }
+    
+    // Normal action handling for regular instructions
+    // Set flag to ignore the next change detection in the editor
+    // This prevents the AI-generated change from being logged as a manual edit
+    ignoreNextChange();
+    
+    // Add to action history
+    addActionToHistory(action, instructions, modelName);
+    
+    // Keep the popup visible - don't close it after action
+    // This allows the user to perform another action on the same text
+  }, [addActionToHistory, ignoreNextChange]);
+  
+  // Handle model selection
+  const handleModelSelect = useCallback((model: GeminiModel) => {
+    originalHandleModelSelect(model);
+    setSelectedModel(model);
+    
+    // Show notification
+    const notification = document.createElement('div');
+    notification.className = 'fixed bottom-4 right-4 bg-indigo-600 text-white px-4 py-2 rounded-md shadow-lg transition-opacity duration-300';
+    notification.textContent = `Switched to ${model}`;
+    document.body.appendChild(notification);
+    
+    // Remove notification after delay
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 300);
+    }, 2000);
+  }, [originalHandleModelSelect]);
+  
+  // Toggle export menu
+  const handleToggleExportMenu = useCallback(() => {
+    toggleExportMenu();
+    
+    // Close model selector if open
+    if (showModelSelector) {
+      closeModelSelector();
+    }
+  }, [toggleExportMenu, showModelSelector, closeModelSelector]);
+  
+  // Toggle monospace font
+  const handleToggleMonospace = useCallback(() => {
+    setIsMonospaceFont(prev => !prev);
+  }, []);
+  
+  // Handle showing popup
+  const handleShowPopup = useCallback((shouldShow: boolean) => {
+    // If AI is processing and we're trying to hide the popup, ignore it
+    if (!shouldShow && isAiProcessing) {
+      console.log('Ignoring popup hide request during AI processing');
+      return;
+    }
+    
+    setShowPopup(shouldShow);
+    
+    if (shouldShow && editor) {
+      // Get the selected text
+      const text = getSelectedText(editor);
+      setSelectedText(text);
+      
+      // Get the selection coordinates
+      const rect = getSelectionRect();
+      if (rect) {
+        setSelectionCoords({
+          x: rect.left + window.scrollX,
+          y: rect.bottom + window.scrollY
+        });
+      }
+      
+      // Automatically highlight the selected text when showing the popup
+      highlightSelection(editor);
+    } else if (!shouldShow && editor) {
+      setSelectedText(null);
+      setSelectionCoords(null);
+      
+      // Don't automatically clear highlights when hiding popup
+      // This allows highlights to persist until explicitly cleared
+    }
+  }, [editor, isAiProcessing]);
+  
+  // Use selection handling hook
+  const { 
+    handleMouseDown, 
+    handleMouseUp, 
+    handleDragStart, 
+    handleDragEnd, 
+    handleSelectionChange 
+  } = useSelectionHandling({ 
+    editor, 
+    onShowPopup: handleShowPopup 
+  });
+  
+  // Subscribe to editor selection changes
+  useEffect(() => {
+    if (!editor) return;
+    
+    // Use the event handler pattern
+    const onSelectionUpdate = () => {
+      handleSelectionChange();
+    };
+    
+    editor.on('selectionUpdate', onSelectionUpdate);
+    
+    return () => {
+      editor.off('selectionUpdate', onSelectionUpdate);
+    };
+  }, [editor, handleSelectionChange]);
+  
+  // Start tracking text changes when editor is ready
+  useEffect(() => {
+    if (isEditorReady && editor) {
+      startTracking();
+    }
+    
+    return () => {
+      stopTracking();
+    };
+  }, [isEditorReady, editor, startTracking, stopTracking]);
+  
+  // Handle click outside to close menus
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Close export menu if clicking outside
+      if (showExportMenu) {
+        const exportButton = document.querySelector('[data-export-button]');
+        const exportMenu = document.querySelector('[data-export-menu]');
+        
+        if (exportButton && 
+            !exportButton.contains(event.target as Node) && 
+            (!exportMenu || !exportMenu.contains(event.target as Node))) {
+          closeExportMenu();
+        }
+      }
+      
+      // Don't hide popup during AI processing
+      if (isAiProcessing) {
+        return;
+      }
+      
+      // Hide popup when clicking outside editor and popup
+      if (showPopup) {
+        const editorElement = document.querySelector('.ProseMirror');
+        const popupElement = document.querySelector('.text-selection-popup');
+        
+        // First, check if the click target is the popup or a child of the popup
+        if (popupElement && popupElement.contains(event.target as Node)) {
+          // If clicking inside the popup, don't close it
+          console.log('Click inside popup detected - keeping popup open');
+          
+          // Check if clicking on an input field
+          const target = event.target as HTMLElement;
+          if (target.tagName.toLowerCase() === 'input') {
+            console.log('Click on input field - allowing default behavior');
+            // Let the input field handle the click, but prevent closing
+            event.stopPropagation();
+            return;
+          }
+          
+          // For non-input elements in the popup, prevent all default behavior
+          event.stopPropagation();
+          event.preventDefault();
+          return;
+        }
+        
+        // Don't close if the click was on the selected text
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          if (range.toString().trim().length > 0) {
+            // If clicking on selected text, don't close the popup
+            const rangeRect = range.getBoundingClientRect();
+            if (event.clientX >= rangeRect.left && 
+                event.clientX <= rangeRect.right && 
+                event.clientY >= rangeRect.top && 
+                event.clientY <= rangeRect.bottom) {
+              console.log('Click on selected text - keeping popup open');
+              return;
+            }
+          }
+        }
+        
+        // Close popup if clicking outside both editor and popup
+        if (editorElement && 
+            !editorElement.contains(event.target as Node) && 
+            (!popupElement || !popupElement.contains(event.target as Node))) {
+          console.log('Click outside editor and popup - closing popup');
+          setShowPopup(false);
+        }
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showExportMenu, showPopup, closeExportMenu, isAiProcessing]);
+  
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyboardShortcut = (e: KeyboardEvent) => {
+      // Only process if editor is ready
+      if (!editor || !isEditorReady) return;
+      
+      // Check for Escape key to clear highlights
+      if (e.key === 'Escape') {
+        clearAllHighlights(editor);
+        return;
+      }
+      
+      // Check for Ctrl/Cmd + key combinations
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+        switch (e.key.toLowerCase()) {
+          case 'e':
+            e.preventDefault();
+            handleToggleExportMenu();
+            break;
+          case 'm':
+            e.preventDefault();
+            // Cycle through models on keyboard shortcut
+            const models: GeminiModel[] = [
+              'gemini-2.0-flash',
+              'gemini-2.0-pro-exp-02-05',
+              'gemini-2.0-flash-lite'
+            ];
+            const currentIndex = models.findIndex(model => model === selectedModel);
+            const nextIndex = (currentIndex + 1) % models.length;
+            handleModelSelect(models[nextIndex]);
+            break;
+          case 'h':
+            e.preventDefault();
+            setIsHistoryOpen(true);
+            break;
+          case 'c':
+            // Only handle if there's no selection (let browser handle normal copy)
+            if (!editor.state.selection.empty) {
+              // Let the browser's default copy behavior work for selections
+              return;
+            }
+            
+            e.preventDefault();
+            if (editor) {
+              // Copy current content when nothing is selected
+              navigator.clipboard.writeText(getContent());
+            }
+            break;
+          case 'x':
+            // Only handle if there's no selection (let browser handle normal cut)
+            if (!editor.state.selection.empty) {
+              // Let the browser's default cut behavior work for selections
+              return;
+            }
+            
+            e.preventDefault();
+            if (editor) {
+              // Clear entire content when nothing is selected
+              setContent('');
+              clearActionHistory();
+            }
+            break;
+          case 'i':
+            e.preventDefault();
+            if (editor) {
+              // Prevent tracking the next change (useful for manual editing)
+              ignoreNextChange();
+            }
+            break;
+          case '`':
+            e.preventDefault();
+            // Toggle monospace font
+            handleToggleMonospace();
+            break;
+        }
+      }
+      
+      // Ctrl+Shift+P to force show the popup for current selection
+      if (e.ctrlKey && e.shiftKey && e.key === 'p') {
+        e.preventDefault();
+        console.log('Keyboard shortcut Ctrl+Shift+P detected - forcing popup');
+        
+        // Get current selection and show popup
+        const text = getSelectedText(editor);
+        if (text) {
+          setSelectedText(text);
+          
+          // Get coordinates
+          const rect = getSelectionRect();
+          if (rect) {
+            setSelectionCoords({
+              x: rect.left + window.scrollX,
+              y: rect.bottom + window.scrollY
+            });
+            setShowPopup(true);
+          }
+        }
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyboardShortcut);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyboardShortcut);
+    };
+  }, [editor, isEditorReady, handleToggleExportMenu, selectedModel, handleModelSelect, getContent, setContent, clearActionHistory, ignoreNextChange, handleToggleMonospace]);
+  
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex justify-between items-center px-4 py-2 border-b bg-gradient-to-r from-indigo-50 to-blue-50">
+        <div className="flex items-center">
+          <h2 className="text-xl font-semibold text-gray-800">Quick AI Text Editor</h2>
+          {editor && <TokenUsageDisplay editor={editor} className="ml-4" />}
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleToggleMonospace}
+            className={`px-3 py-1 border text-sm rounded-md shadow-sm flex items-center ${
+              isMonospaceFont 
+                ? 'bg-indigo-100 text-indigo-800 border-indigo-200 font-medium' 
+                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+            }`}
+            title="Toggle Monospace Font (Ctrl+`)"
+          >
+            <span className="font-mono">Monospace</span>
+          </button>
+          
+          <div className="flex rounded-md shadow-sm overflow-hidden border border-gray-200">
+            <button
+              onClick={() => handleModelSelect('gemini-2.0-flash')}
+              className={`px-3 py-1 text-sm ${
+                selectedModel === 'gemini-2.0-flash' 
+                  ? 'bg-indigo-100 text-indigo-800 font-medium' 
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Flash
+            </button>
+            <div className="w-px bg-gray-200"></div>
+            <button
+              onClick={() => handleModelSelect('gemini-2.0-pro-exp-02-05')}
+              className={`px-3 py-1 text-sm ${
+                selectedModel === 'gemini-2.0-pro-exp-02-05' 
+                  ? 'bg-indigo-100 text-indigo-800 font-medium' 
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Pro
+            </button>
+            <div className="w-px bg-gray-200"></div>
+            <button
+              onClick={() => handleModelSelect('gemini-2.0-flash-lite')}
+              className={`px-3 py-1 text-sm ${
+                selectedModel === 'gemini-2.0-flash-lite' 
+                  ? 'bg-indigo-100 text-indigo-800 font-medium' 
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Lite
+            </button>
+          </div>
+          
+          <button
+            onClick={() => setIsHistoryOpen(true)}
+            className="px-3 py-1 bg-white border border-gray-200 text-gray-700 rounded-md hover:bg-gray-50 flex items-center text-sm shadow-sm"
+          >
+            <span className="mr-1">History</span>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+          </button>
+          
+          <div className="relative">
+            <button
+              onClick={handleToggleExportMenu}
+              className="px-3 py-1 bg-white border border-gray-200 text-gray-700 rounded-md hover:bg-gray-50 flex items-center text-sm shadow-sm"
+              data-export-button
+            >
+              <span>Export</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {showExportMenu && (
+              <ExportMenu
+                isOpen={showExportMenu}
+                onExportHTML={exportAsHTML}
+                onExportMarkdown={exportAsMarkdown}
+                onExportText={exportAsText}
+                onClose={closeExportMenu}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+      
+      <div className="bg-gray-50 px-2 py-1 border-b">
+        {editor && <EditorMenuBar editor={editor} />}
+      </div>
+      
+      <div className="flex-grow">
+        <div 
+          className={`editor-container min-h-[400px] max-h-[70vh] overflow-y-auto ${isMonospaceFont ? 'font-mono' : ''}`}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <EditorContent editor={editor} className="h-full" />
+        </div>
+      </div>
+      
+      <div className="border-t border-gray-100 px-4 py-3 bg-gray-50 text-xs text-gray-500 flex justify-between items-center">
+        <div>
+          <span className="font-medium text-gray-600">Using: </span>
+          <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full text-xs font-medium">
+            {selectedModel}
+          </span>
+          {isMonospaceFont && (
+            <span className="ml-2 bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full text-xs font-medium font-mono">
+              Monospace
+            </span>
+          )}
+        </div>
+        <div>
+          Select text to see AI options • <span className="text-gray-600 font-medium">Ctrl+Shift+P</span> to force popup • <span className="text-gray-600 font-medium">Ctrl+`</span> for monospace
+        </div>
+      </div>
+      
+      {isHistoryOpen && <EditHistoryViewer onClose={() => setIsHistoryOpen(false)} />}
+      
+      <TextSelectionPopup 
+        text={selectedText || ''} 
+        position={selectionCoords || { x: 0, y: 0 }} 
+        editor={editor!}
+        className="text-selection-popup"
+        onActionPerformed={handleActionPerformed}
+        actionHistory={actionHistory}
+        modelName={selectedModel}
+        isVisible={showPopup && !!selectedText && !!selectionCoords}
+      />
+    </div>
+  );
+};
+
+export default EditorContainer; 
+
+================================================
+File: app/components/editor/extensions/PersistentHighlight.tsx
+================================================
+"use client";
+
+import { Extension } from '@tiptap/core';
+import { Plugin, PluginKey } from 'prosemirror-state';
+import { Decoration, DecorationSet } from 'prosemirror-view';
+
+// Interface for highlight objects
+export interface Highlight {
+  from: number;
+  to: number;
+  class: string;
+}
+
+// Declare the commands interface to extend Tiptap's command types
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    persistentHighlight: {
+      /**
+       * Add a highlight to the document
+       */
+      addHighlight: (highlight: Highlight) => ReturnType;
+      /**
+       * Remove a highlight at the specified index
+       */
+      removeHighlight: (highlightIndex: number) => ReturnType;
+      /**
+       * Clear all highlights
+       */
+      clearHighlights: () => ReturnType;
+    };
+  }
+}
+
+// Create the PersistentHighlight extension
+const PersistentHighlight = Extension.create({
+  name: 'persistentHighlight',
+
+  addOptions() {
+    return {
+      highlightClass: 'highlight-yellow',
+    };
+  },
+
+  addStorage() {
+    return {
+      highlights: [] as Highlight[],
+    };
+  },
+
+  addCommands() {
+    return {
+      addHighlight: (highlight: Highlight) => ({ tr, dispatch }) => {
+        // Add the highlight to storage
+        this.storage.highlights = [...this.storage.highlights, highlight];
+        
+        // Force a redraw if dispatch is available
+        if (dispatch) {
+          dispatch(tr);
+        }
+        
+        return true;
+      },
+      
+      removeHighlight: (highlightIndex: number) => ({ tr, dispatch }) => {
+        // Remove the highlight at the specified index
+        this.storage.highlights = this.storage.highlights.filter(
+          (_highlight: Highlight, index: number) => index !== highlightIndex
+        );
+        
+        // Force a redraw if dispatch is available
+        if (dispatch) {
+          dispatch(tr);
+        }
+        
+        return true;
+      },
+      
+      clearHighlights: () => ({ tr, dispatch }) => {
+        // Clear all highlights
+        this.storage.highlights = [];
+        
+        // Force a redraw if dispatch is available
+        if (dispatch) {
+          dispatch(tr);
+        }
+        
+        return true;
+      },
+    };
+  },
+
+  addProseMirrorPlugins() {
+    const { highlightClass } = this.options;
+    
+    return [
+      new Plugin({
+        key: new PluginKey('persistentHighlight'),
+        props: {
+          decorations: (state) => {
+            const { doc } = state;
+            const decorations: Decoration[] = [];
+            
+            // Apply all stored highlights as decorations
+            this.storage.highlights.forEach((highlight: Highlight) => {
+              const from = highlight.from;
+              const to = highlight.to;
+              
+              if (from === to) return;
+              
+              decorations.push(
+                Decoration.inline(from, to, {
+                  class: highlight.class || highlightClass,
+                })
+              );
+            });
+            
+            return DecorationSet.create(doc, decorations);
+          },
+        },
+      }),
+    ];
+  },
+});
+
+export default PersistentHighlight; 
+
+================================================
+File: app/components/editor/hooks/useActionHistory.ts
+================================================
+import { useCallback, useState, useEffect } from 'react';
+import { ActionHistoryItem, MAX_ACTION_HISTORY } from '../../../types/editor.types';
+import { AIAction, GeminiModel } from '../../../services/geminiService';
+
+export const useActionHistory = () => {
+  const [actionHistory, setActionHistory] = useState<ActionHistoryItem[]>([]);
+  
+  // Load action history from localStorage on initial render
+  useEffect(() => {
+    try {
+      const savedHistory = localStorage.getItem('actionHistory');
+      if (savedHistory) {
+        const parsedHistory = JSON.parse(savedHistory);
+        if (Array.isArray(parsedHistory)) {
+          setActionHistory(parsedHistory);
+          console.log('Loaded action history from localStorage:', parsedHistory.length, 'items');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading action history from localStorage:', error);
+    }
+  }, []);
+  
+  // Add an action to the history
+  const addActionToHistory = useCallback((
+    action: AIAction,
+    instructions: string,
+    modelName: GeminiModel
+  ) => {
+    // If action is empty, it's a signal to close the popup, not an actual action
+    if (!action) {
+      console.log('Empty action received, not adding to history');
+      return;
+    }
+    
+    console.log('Adding action to history:', action, instructions, modelName);
+    
+    setActionHistory((prevHistory) => {
+      // Create a new history item
+      const newItem: ActionHistoryItem = {
+        action,
+        instructions,
+        timestamp: Date.now(),
+        modelName,
+      };
+      
+      // Add to the beginning of the array and limit to MAX_ACTION_HISTORY items
+      const updatedHistory = [newItem, ...prevHistory];
+      const limitedHistory = updatedHistory.length > MAX_ACTION_HISTORY 
+        ? updatedHistory.slice(0, MAX_ACTION_HISTORY)
+        : updatedHistory;
+      
+      // Save to localStorage
+      try {
+        localStorage.setItem('actionHistory', JSON.stringify(limitedHistory));
+        console.log('Saved action history to localStorage:', limitedHistory.length, 'items');
+      } catch (error) {
+        console.error('Error saving action history to localStorage:', error);
+      }
+      
+      return limitedHistory;
+    });
+  }, []);
+  
+  // Clear the action history
+  const clearActionHistory = useCallback(() => {
+    setActionHistory([]);
+    try {
+      localStorage.removeItem('actionHistory');
+      console.log('Cleared action history from localStorage');
+    } catch (error) {
+      console.error('Error clearing action history from localStorage:', error);
+    }
+  }, []);
+  
+  return {
+    actionHistory,
+    addActionToHistory,
+    clearActionHistory
+  };
+}; 
+
+================================================
+File: app/components/editor/hooks/useEditorInitialization.ts
+================================================
+import { useCallback, useEffect, useState } from 'react';
+import { Editor, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import Underline from '@tiptap/extension-underline';
+import PersistentHighlight from '../extensions/PersistentHighlight';
+
+interface UseEditorInitializationProps {
+  initialContent?: string;
+  onUpdate?: (editor: Editor) => void;
+  placeholder?: string;
+  isMonospaceFont?: boolean;
+}
+
+export const useEditorInitialization = ({
+  initialContent = '',
+  onUpdate,
+  placeholder = 'Start typing or paste text here...',
+  isMonospaceFont = false
+}: UseEditorInitializationProps) => {
+  const [isEditorReady, setIsEditorReady] = useState(false);
+  
+  // Initialize the editor with extensions
+  const editor = useEditor({
+    extensions: [
+      // Use StarterKit which includes most basic extensions
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2, 3],
+        },
+        bulletList: {},
+        orderedList: {},
+        codeBlock: {},
+        blockquote: {},
+        bold: {},
+        italic: {},
+        strike: {},
+        code: {},
+        history: {},
+      }),
+      // Add Underline extension
+      Underline,
+      Placeholder.configure({
+        placeholder,
+      }),
+      PersistentHighlight.configure({
+        highlightClass: 'highlight-yellow',
+      }),
+    ],
+    content: initialContent,
+    autofocus: 'end',
+    onUpdate: ({ editor }) => {
+      onUpdate?.(editor);
+    },
+    editorProps: {
+      attributes: {
+        class: `prose prose-sm focus:outline-none min-h-[300px] max-w-none ${isMonospaceFont ? 'font-mono' : ''}`,
+      },
+    },
+    immediatelyRender: false, // Fix for SSR hydration issues
+  });
+  
+  // Set editor ready state when editor is initialized
+  useEffect(() => {
+    if (editor) {
+      setIsEditorReady(true);
+      
+      // Log initial state
+      console.log('Editor initialized with extensions:', 
+        editor.extensionManager.extensions.map(ext => ext.name).join(', '));
+    }
+  }, [editor]);
+  
+  // Get the editor content
+  const getContent = useCallback(() => {
+    if (!editor) return '';
+    return editor.getHTML();
+  }, [editor]);
+  
+  // Set the editor content
+  const setContent = useCallback((content: string) => {
+    if (!editor) return;
+    editor.commands.setContent(content);
+  }, [editor]);
+  
+  return {
+    editor,
+    isEditorReady,
+    getContent,
+    setContent
+  };
+}; 
+
+================================================
+File: app/components/editor/hooks/useExportMenu.ts
+================================================
+import { useCallback, useState } from 'react';
+import { Editor } from '@tiptap/react';
+
+interface UseExportMenuProps {
+  editor: Editor | null;
+}
+
+export const useExportMenu = ({ editor }: UseExportMenuProps) => {
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  
+  // Toggle the export menu
+  const toggleExportMenu = useCallback(() => {
+    setShowExportMenu((prev) => !prev);
+  }, []);
+  
+  // Close the export menu
+  const closeExportMenu = useCallback(() => {
+    setShowExportMenu(false);
+  }, []);
+  
+  // Export as HTML
+  const exportAsHTML = useCallback(() => {
+    if (!editor) return;
+    
+    const content = editor.getHTML();
+    const blob = new Blob([content], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'document.html';
+    a.click();
+    
+    URL.revokeObjectURL(url);
+    closeExportMenu();
+  }, [editor, closeExportMenu]);
+  
+  // Export as Markdown
+  const exportAsMarkdown = useCallback(() => {
+    if (!editor) return;
+    
+    const content = editor.storage.markdown?.getMarkdown() || '';
+    const blob = new Blob([content], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'document.md';
+    a.click();
+    
+    URL.revokeObjectURL(url);
+    closeExportMenu();
+  }, [editor, closeExportMenu]);
+  
+  // Export as plain text
+  const exportAsText = useCallback(() => {
+    if (!editor) return;
+    
+    const content = editor.getText();
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'document.txt';
+    a.click();
+    
+    URL.revokeObjectURL(url);
+    closeExportMenu();
+  }, [editor, closeExportMenu]);
+  
+  return {
+    showExportMenu,
+    toggleExportMenu,
+    closeExportMenu,
+    exportAsHTML,
+    exportAsMarkdown,
+    exportAsText
+  };
+}; 
+
+================================================
+File: app/components/editor/hooks/useModelSelection.ts
+================================================
+import { useCallback, useState } from 'react';
+import { GeminiModel } from '../../../services/geminiService';
+
+export const useModelSelection = (initialModel: GeminiModel = 'gemini-2.0-flash-lite') => {
+  const [selectedModel, setSelectedModel] = useState<GeminiModel>(initialModel);
+  const [showModelSelector, setShowModelSelector] = useState(false);
+  
+  // Toggle the model selector
+  const toggleModelSelector = useCallback(() => {
+    setShowModelSelector((prev) => !prev);
+  }, []);
+  
+  // Close the model selector
+  const closeModelSelector = useCallback(() => {
+    setShowModelSelector(false);
+  }, []);
+  
+  // Handle model selection
+  const handleModelSelect = useCallback((model: GeminiModel) => {
+    setSelectedModel(model);
+    closeModelSelector();
+  }, [closeModelSelector]);
+  
+  return {
+    selectedModel,
+    showModelSelector,
+    toggleModelSelector,
+    closeModelSelector,
+    handleModelSelect
+  };
+}; 
+
+================================================
+File: app/components/editor/hooks/useSelectionHandling.ts
+================================================
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Editor } from '@tiptap/react';
+import { getSelectionRange, isValidSelectionForPopup, getSelectionRect } from '../../../utils/selectionUtils';
+import { clearAllHighlights } from '../../../utils/highlightUtils';
+
+interface UseSelectionHandlingProps {
+  editor: Editor | null;
+  onShowPopup: (shouldShow: boolean) => void;
+}
+
+export const useSelectionHandling = ({ editor, onShowPopup }: UseSelectionHandlingProps) => {
+  const [selectionRange, setSelectionRange] = useState<{ from: number; to: number } | null>(null);
+  const isSelecting = useRef(false);
+  const isDragging = useRef(false);
+  const lastTouchEnd = useRef(0);
+  const lastMouseUpTime = useRef(0);
+  const selectionCheckTimer = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  
+  // Create a function to check if selection should show popup
+  const checkSelectionForPopup = useCallback(() => {
+    if (!editor) return;
+    
+    // Clear any pending timer
+    if (selectionCheckTimer.current) {
+      clearTimeout(selectionCheckTimer.current);
+      selectionCheckTimer.current = null;
+    }
+    
+    // Get the current selection range
+    const range = getSelectionRange(editor);
+    setSelectionRange(range);
+    
+    // Check if the selection is valid
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !range) {
+      // Before hiding the popup, check if we're interacting with the popup input
+      const activeElement = document.activeElement;
+      const popupElement = document.querySelector('.text-selection-popup');
+      
+      if (popupElement && activeElement && popupElement.contains(activeElement)) {
+        return;
+      }
+      
+      // Check if we're clicking inside the popup
+      if (popupElement && popupElement.contains(document.activeElement)) {
+        return;
+      }
+      
+      onShowPopup(false);
+      clearAllHighlights(editor);
+      return;
+    }
+    
+    // Determine if we should show the popup
+    const shouldShowPopup = isValidSelectionForPopup(editor);
+    
+    if (shouldShowPopup) {
+      // Only check for active selection to prevent flicker
+      if (isSelecting.current) {
+        return;
+      }
+      
+      // Get selection coordinates
+      const rect = getSelectionRect();
+      if (!rect || rect.width === 0 || rect.height === 0) {
+        return;
+      }
+      
+      onShowPopup(true);
+    } else {
+      onShowPopup(false);
+      clearAllHighlights(editor);
+    }
+  }, [editor, onShowPopup]);
+  
+  // Handle touch start
+  const handleTouchStart = useCallback((e: Event) => {
+    if (!editor) return;
+    
+    const touchEvent = e as TouchEvent;
+    isSelecting.current = true;
+    touchStartPos.current = {
+      x: touchEvent.touches[0].clientX,
+      y: touchEvent.touches[0].clientY
+    };
+  }, [editor]);
+  
+  // Handle touch end
+  const handleTouchEnd = useCallback(() => {
+    if (!editor) return;
+    
+    const now = Date.now();
+    lastTouchEnd.current = now;
+    isSelecting.current = false;
+    
+    // Add a small delay to allow the selection to settle
+    setTimeout(() => {
+      if (Date.now() - now < 300) return; // Ignore if another touch end happened
+      checkSelectionForPopup();
+    }, 300);
+  }, [editor, checkSelectionForPopup]);
+  
+  // Handle touch move
+  const handleTouchMove = useCallback((e: Event) => {
+    if (!editor || !touchStartPos.current) return;
+    
+    const touchEvent = e as TouchEvent;
+    const touch = touchEvent.touches[0];
+    const deltaX = Math.abs(touch.clientX - touchStartPos.current.x);
+    const deltaY = Math.abs(touch.clientY - touchStartPos.current.y);
+    
+    // If the user has moved their finger more than a small threshold,
+    // consider it a selection attempt rather than a tap
+    if (deltaX > 10 || deltaY > 10) {
+      isSelecting.current = true;
+    }
+  }, [editor]);
+  
+  // Handle mouse down
+  const handleMouseDown = useCallback((e: React.MouseEvent | MouseEvent) => {
+    if (!editor) return;
+    
+    const popupElement = document.querySelector('.text-selection-popup');
+    if (popupElement && popupElement.contains(e.target as Node)) {
+      e.stopPropagation();
+      
+      const target = e.target as HTMLElement;
+      if (target.tagName.toLowerCase() === 'input') {
+        return;
+      }
+      
+      if ('preventDefault' in e) {
+        e.preventDefault();
+      }
+      
+      if (e instanceof MouseEvent && e.stopImmediatePropagation) {
+        e.stopImmediatePropagation();
+      }
+      
+      return;
+    }
+    
+    isSelecting.current = true;
+  }, [editor]);
+  
+  // Handle mouse up
+  const handleMouseUp = useCallback(() => {
+    if (!editor) return;
+    
+    lastMouseUpTime.current = Date.now();
+    isSelecting.current = false;
+    checkSelectionForPopup();
+  }, [editor, checkSelectionForPopup]);
+  
+  // Handle selection change
+  const handleSelectionChange = useCallback(() => {
+    if (!editor) return;
+    
+    // If actively selecting, wait a tiny bit
+    if (isSelecting.current) {
+      selectionCheckTimer.current = setTimeout(() => {
+        checkSelectionForPopup();
+      }, 20);
+      return;
+    }
+    
+    // If not actively selecting, check immediately
+    checkSelectionForPopup();
+  }, [editor, checkSelectionForPopup]);
+  
+  // Handle drag events
+  const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement> | DragEvent) => {
+    if (!editor) return;
+    
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    
+    isDragging.current = true;
+    onShowPopup(false);
+  }, [editor, onShowPopup]);
+  
+  const handleDragEnd = useCallback((e: React.DragEvent<HTMLDivElement> | DragEvent) => {
+    if (!editor) return;
+    
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    
+    isDragging.current = false;
+    setTimeout(() => {
+      checkSelectionForPopup();
+    }, 30);
+  }, [editor, checkSelectionForPopup]);
+  
+  // Set up event listeners
+  useEffect(() => {
+    const editorElement = document.querySelector('.ProseMirror');
+    if (!editorElement) return;
+    
+    // Add touch event listeners
+    editorElement.addEventListener('touchstart', handleTouchStart as EventListener);
+    editorElement.addEventListener('touchend', handleTouchEnd as EventListener);
+    editorElement.addEventListener('touchmove', handleTouchMove as EventListener);
+    
+    // Add selection change listener
+    const onSelectionChange = () => {
+      // Skip if we're in the middle of selecting or dragging
+      if (isSelecting.current || isDragging.current) {
+        return;
+      }
+      
+      // Minimal delay between mouse up and selection check
+      const timeSinceMouseUp = Date.now() - lastMouseUpTime.current;
+      if (timeSinceMouseUp < 20) { // Minimal delay
+        return;
+      }
+      
+      handleSelectionChange();
+    };
+    
+    // Add document-level mouse up handler
+    const onDocumentMouseUp = () => {
+      if (isSelecting.current) {
+        lastMouseUpTime.current = Date.now();
+        isSelecting.current = false;
+        // Add a small delay to let the selection finalize
+        setTimeout(() => {
+          checkSelectionForPopup();
+        }, 20);
+      }
+    };
+    
+    document.addEventListener('selectionchange', onSelectionChange);
+    document.addEventListener('mouseup', onDocumentMouseUp);
+    
+    return () => {
+      editorElement.removeEventListener('touchstart', handleTouchStart as EventListener);
+      editorElement.removeEventListener('touchend', handleTouchEnd as EventListener);
+      editorElement.removeEventListener('touchmove', handleTouchMove as EventListener);
+      document.removeEventListener('selectionchange', onSelectionChange);
+      document.removeEventListener('mouseup', onDocumentMouseUp);
+    };
+  }, [handleTouchStart, handleTouchEnd, handleTouchMove, handleSelectionChange, isSelecting, isDragging, lastMouseUpTime, checkSelectionForPopup]);
+  
+  return {
+    selectionRange,
+    isSelecting,
+    isDragging,
+    handleMouseDown,
+    handleMouseUp,
+    handleDragStart,
+    handleDragEnd,
+    handleSelectionChange,
+    handleTouchStart,
+    handleTouchEnd,
+    handleTouchMove
+  };
+}; 
+
+================================================
+File: app/components/editor/hooks/useTextChangeTracking.ts
+================================================
+import { useCallback, useEffect, useRef } from 'react';
+import { Editor } from '@tiptap/react';
+import { TextChangeTracker } from '../../../types/editor.types';
+
+interface UseTextChangeTrackingProps {
+  editor: Editor | null;
+  onContentChange?: (content: string) => void;
+  debounceTime?: number;
+}
+
+export const useTextChangeTracking = ({
+  editor,
+  onContentChange,
+  debounceTime = 500
+}: UseTextChangeTrackingProps) => {
+  // Reference to track text changes
+  const textChangeTracker = useRef<TextChangeTracker>({
+    previousContent: '',
+    changeTimer: null,
+    isTracking: false,
+    ignoreNextChange: false,
+  });
+  
+  // Start tracking text changes
+  const startTracking = useCallback(() => {
+    if (!editor) return;
+    
+    textChangeTracker.current.isTracking = true;
+    textChangeTracker.current.previousContent = editor.getHTML();
+  }, [editor]);
+  
+  // Stop tracking text changes
+  const stopTracking = useCallback(() => {
+    textChangeTracker.current.isTracking = false;
+    
+    // Clear any pending timers
+    if (textChangeTracker.current.changeTimer) {
+      clearTimeout(textChangeTracker.current.changeTimer);
+      textChangeTracker.current.changeTimer = null;
+    }
+  }, []);
+  
+  // Ignore the next change (useful after AI actions)
+  const ignoreNextChange = useCallback(() => {
+    textChangeTracker.current.ignoreNextChange = true;
+  }, []);
+  
+  // Handle content updates
+  useEffect(() => {
+    if (!editor || !onContentChange) return;
+    
+    // Create a reference to the current tracker for use in cleanup
+    const currentTracker = textChangeTracker.current;
+    
+    // Function to handle editor updates
+    const handleUpdate = ({ editor }: { editor: Editor }) => {
+      const currentContent = editor.getHTML();
+      
+      // Check if we should ignore this change
+      if (currentTracker.ignoreNextChange) {
+        currentTracker.ignoreNextChange = false;
+        currentTracker.previousContent = currentContent;
+        return;
+      }
+      
+      // Only track changes if tracking is enabled
+      if (!currentTracker.isTracking) return;
+      
+      // Clear any existing timer
+      if (currentTracker.changeTimer) {
+        clearTimeout(currentTracker.changeTimer);
+      }
+      
+      // Set a new timer to debounce the change notification
+      currentTracker.changeTimer = setTimeout(() => {
+        // Only notify if content has actually changed
+        if (currentContent !== currentTracker.previousContent) {
+          onContentChange(currentContent);
+          currentTracker.previousContent = currentContent;
+        }
+      }, debounceTime);
+    };
+    
+    // Subscribe to editor updates
+    editor.on('update', handleUpdate);
+    
+    // Cleanup on unmount
+    return () => {
+      editor.off('update', handleUpdate);
+      if (currentTracker.changeTimer) {
+        clearTimeout(currentTracker.changeTimer);
+      }
+    };
+  }, [editor, onContentChange, debounceTime]);
+  
+  return {
+    startTracking,
+    stopTracking,
+    ignoreNextChange
+  };
+}; 
+
+================================================
+File: app/components/editor/ui/ExportMenu.tsx
+================================================
+import React from 'react';
+
+interface ExportMenuProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onExportHTML: () => void;
+  onExportMarkdown: () => void;
+  onExportText: () => void;
+}
+
+const ExportMenu: React.FC<ExportMenuProps> = ({
+  isOpen,
+  onClose,
+  onExportHTML,
+  onExportMarkdown,
+  onExportText
+}) => {
+  if (!isOpen) return null;
+  
+  // Function to handle clicking on a menu item
+  const handleMenuItemClick = (action: () => void) => {
+    action();
+    onClose(); // Close the menu after an action is performed
+  };
+  
+  return (
+    <div className="absolute right-0 top-full mt-1 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 z-50" data-export-menu>
+      <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="export-button">
+        <button
+          className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          role="menuitem"
+          onClick={() => handleMenuItemClick(onExportHTML)}
+        >
+          Export as HTML
+        </button>
+        <button
+          className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          role="menuitem"
+          onClick={() => handleMenuItemClick(onExportMarkdown)}
+        >
+          Export as Markdown
+        </button>
+        <button
+          className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          role="menuitem"
+          onClick={() => handleMenuItemClick(onExportText)}
+        >
+          Export as Text
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default ExportMenu; 
+
+================================================
+File: app/components/editor/ui/ModelSelector.tsx
+================================================
+import React from 'react';
+import { GeminiModel } from '../../../services/geminiService';
+
+interface ModelSelectorProps {
+  isOpen: boolean;
+  selectedModel: GeminiModel;
+  onModelSelect: (model: GeminiModel) => void;
+  onClose: () => void;
+}
+
+// Model descriptions for the UI
+const MODEL_DESCRIPTIONS: Record<GeminiModel, string> = {
+  'gemini-2.0-flash-lite': 'Fast, efficient model for quick responses',
+  'gemini-2.0-flash': 'Balanced model with good performance',
+  'gemini-2.0-pro-exp-02-05': 'Advanced model with highest quality responses',
+};
+
+const ModelSelector: React.FC<ModelSelectorProps> = ({
+  isOpen,
+  selectedModel,
+  onModelSelect,
+  onClose
+}) => {
+  if (!isOpen) return null;
+  
+  // Available models
+  const models: GeminiModel[] = [
+    'gemini-2.0-flash-lite',
+    'gemini-2.0-flash',
+    'gemini-2.0-pro-exp-02-05',
+  ];
+  
+  // Handle model selection and close the selector
+  const handleSelectModel = (model: GeminiModel) => {
+    onModelSelect(model);
+    onClose(); // Close the selector after selection
+  };
+  
+  return (
+    <div className="absolute right-0 top-12 z-10 w-64 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+      <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="model-selector-button">
+        {models.map((model) => (
+          <button
+            key={model}
+            className={`block w-full px-4 py-2 text-left text-sm ${
+              model === selectedModel ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'
+            }`}
+            role="menuitem"
+            onClick={() => handleSelectModel(model)}
+          >
+            <div className="font-medium">{model}</div>
+            <div className="text-xs text-gray-500">{MODEL_DESCRIPTIONS[model]}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default ModelSelector; 
+
+================================================
+File: app/services/geminiService.ts
+================================================
+"use client";
+
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+// Types for our AI operations
+export type AIAction = 'expand' | 'summarize' | 'rephrase' | 'revise';
+
+// Define valid Gemini model types
+export type GeminiModel = 
+  | 'gemini-2.0-pro-exp-02-05'  // The Pro version
+  | 'gemini-2.0-flash'         // The Flash version
+  | 'gemini-2.0-flash-lite';  // The Flash Lite version
+
+// Default model to use
+export const DEFAULT_MODEL: GeminiModel = 'gemini-2.0-flash';
+
+// Default word limit (can be overridden by environment variable)
+export const DEFAULT_WORD_LIMIT = 2500;
+
+// Get the word limit from environment variable or use default
+export const getWordLimit = (): number => {
+  const envLimit = process.env.NEXT_PUBLIC_WORD_LIMIT;
+  return envLimit ? parseInt(envLimit, 10) : DEFAULT_WORD_LIMIT;
+};
+
+// For backward compatibility - returns word limit
+export const getTokenLimit = (): number => {
+  return getWordLimit();
+};
+
+// Count words in text (more user-friendly than tokens)
+export const countWords = (text: string): number => {
+  // Remove HTML tags if present
+  const textWithoutHtml = text.replace(/<[^>]*>/g, ' ');
+  
+  // Count words by splitting on whitespace
+  const words = textWithoutHtml.trim().split(/\s+/);
+  
+  // Filter out empty strings that might result from multiple spaces
+  return words.filter(word => word.length > 0).length;
+};
+
+// For backward compatibility
+export const estimateTokenCount = (text: string): number => {
+  return countWords(text);
+};
+
+interface AITransformationRequest {
+  text: string;
+  action: AIAction;
+  additionalInstructions?: string;
+  fullDocument?: string; // Optional full document content for context
+}
+
+// Initialize the Gemini API with the API key from environment variables
+export const initializeGemini = () => {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY is not defined in your environment variables');
+  }
+  
+  return new GoogleGenerativeAI(apiKey);
+};
+
+// Create the prompt for the Gemini API based on the action and additional instructions
+const createPrompt = (request: AITransformationRequest): string => {
+  const { text, action, additionalInstructions, fullDocument } = request;
+  
+  let prompt = 'IMPORTANT: Return ONLY the transformed text without any explanations, introductions, or commentary.\n\n';
+  
+  // If we have the full document, include it for context
+  if (fullDocument) {
+    prompt += `Below is the full document for context. You'll be asked to transform only a specific part of it:\n\n${fullDocument}\n\n`;
+    prompt += `Now, please focus ONLY on transforming the following specific text (marked between triple backticks):\n\n\`\`\`\n${text}\n\`\`\`\n\n`;
+  } else {
+    // No full document provided, just use the selected text
+    prompt += `Transform the following text:\n\n"${text}"\n\n`;
+  }
+  
+  // Add action-specific instructions
+  switch (action) {
+    case 'expand':
+      prompt += `Action: Expand this text with more details and context while maintaining consistency with the surrounding document.\n\n`;
+      break;
+    case 'summarize':
+      prompt += `Action: Summarize this text concisely while preserving the key points.\n\n`;
+      break;
+    case 'rephrase':
+      prompt += `Action: Rephrase this text while preserving its meaning. Use the surrounding document context to ensure consistent tone and terminology.\n\n`;
+      break;
+    case 'revise':
+      prompt += `Action: Correct any factual errors, inconsistencies, or inaccuracies in this text. Maintain the original style and tone while fixing only the problematic content.\n\n`;
+      break;
+    default:
+      prompt += `Action: Process this text appropriately.\n\n`;
+  }
+  
+  if (additionalInstructions) {
+    prompt += `Additional instructions/information: ${additionalInstructions}\n\n`;
+  }
+  
+  prompt += 'Remember to return ONLY the transformed text with no explanations or additional text. Do not include phrases like "Here is the revised text:" or any other introductory or explanatory text.';
+  
+  return prompt;
+};
+
+// Perform AI transformation on the selected text
+export const transformText = async (
+  request: AITransformationRequest, 
+  modelName: GeminiModel = DEFAULT_MODEL
+): Promise<string> => {
+  try {
+    // Check word limits before proceeding
+    const wordLimit = getWordLimit();
+    const { text: selectedText, fullDocument } = request;
+    
+    // Count words for selected text and full document
+    const selectedTextWords = countWords(selectedText);
+    const fullDocumentWords = fullDocument ? countWords(fullDocument) : 0;
+    
+    console.log(`Estimated words - Selected: ${selectedTextWords}, Full document: ${fullDocumentWords}, Limit: ${wordLimit}`);
+    
+    // Check if we exceed the word limit
+    if (fullDocumentWords > wordLimit) {
+      throw new Error(`Document exceeds the word limit (${fullDocumentWords} > ${wordLimit}). Please reduce the document size.`);
+    }
+    
+    const genAI = initializeGemini();
+    // Use the provided model or fall back to the default
+    const model = genAI.getGenerativeModel({ 
+      model: modelName
+    });
+    
+    console.log(`Using Gemini model: ${modelName}`);
+    
+    const prompt = createPrompt(request);
+    
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    let responseText = response.text();
+    
+    // Remove intro phrases but preserve internal quotes
+    responseText = responseText.replace(/^Here is the .+?:\s*/i, '');
+    
+    // Remove triple backticks if present
+    responseText = responseText.replace(/```[\s\S]*?```/g, match => match.replace(/```/g, '').trim());
+    
+    // Remove any leading or trailing whitespace including newlines
+    responseText = responseText.trim();
+    
+    return responseText;
+  } catch (error) {
+    console.error('Error in Gemini API call:', error);
+    throw new Error(error instanceof Error ? error.message : 'Unknown error in Gemini API call');
+  }
+};
+
+// Log edit history to localStorage and file API (in development)
+export const logEditHistory = async (
+  originalText: string, 
+  newText: string, 
+  action: AIAction | string,
+  additionalInstructions?: string,
+  modelName?: GeminiModel
+) => {
+  // Format action properly
+  let formattedAction: string;
+  
+  if (typeof action === 'string') {
+    // Handle string actions (like manual edits)
+    if (action.startsWith('manual_')) {
+      formattedAction = `MANUAL_${action.substring(7).toUpperCase()}`;
+    } else if (action === '') {
+      // Skip empty actions (used for signaling popup close)
+      return;
+    } else {
+      formattedAction = `AI_${action.toUpperCase()}`;
+    }
+  } else {
+    // Handle specific AIAction enum values
+    switch(action) {
+      case 'expand':
+        formattedAction = 'AI_EXPAND';
+        break;
+      case 'summarize':
+        formattedAction = 'AI_SUMMARIZE';
+        break;
+      case 'rephrase':
+        formattedAction = 'AI_REPHRASE';
+        break;
+      case 'revise':
+        formattedAction = 'AI_REVISE';
+        break;
+      default:
+        formattedAction = 'AI_ACTION';
+    }
+  }
+    
+  const timestamp = new Date().toISOString();
+  
+  const editLog = {
+    timestamp,
+    action: formattedAction,
+    originalText,
+    newText,
+    additionalInstructions,
+    modelName: modelName || DEFAULT_MODEL // Ensure we always have a model name
+  };
+  
+  // Log to console for debugging
+  console.log('Edit logged:', editLog);
+  
+  try {
+    // Always store in localStorage for client-side history viewing
+    const history = localStorage.getItem('editHistory');
+    const editHistory = history ? JSON.parse(history) : [];
+    editHistory.unshift(editLog); // Add to beginning for newest-first order
+    
+    // Limit history to most recent 100 entries to prevent localStorage from getting too large
+    const limitedHistory = editHistory.slice(0, 100);
+    localStorage.setItem('editHistory', JSON.stringify(limitedHistory));
+    console.log('Edit history saved to localStorage, entries:', limitedHistory.length);
+    
+    // Also save to file API in development (not in production)
+    if (window.location.hostname === 'localhost' || 
+        window.location.hostname === '127.0.0.1' ||
+        window.location.hostname.includes('.local')) {
+      try {
+        const response = await fetch('/api/history', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            timestamp,
+            originalText,
+            newText,
+            action: formattedAction, // Use formatted action
+            additionalInstructions,
+            modelName: modelName || DEFAULT_MODEL
+          }),
+        });
+        
+        if (!response.ok) {
+          console.warn('Could not save edit history to file (development only)');
+        }
+      } catch (apiError) {
+        // Don't fail if the API call fails
+        console.warn('Error saving to history API (development only):', apiError);
+      }
+    }
+  } catch (error) {
+    console.error('Error saving edit history:', error);
+  }
+}; 
+
+================================================
+File: app/services/historyService.ts
+================================================
+"use client";
+
+import { AIAction, GeminiModel } from './geminiService';
+
+// Define the interface for an edit event
+export interface EditEvent {
+  timestamp: string;
+  action: string; // "AI_EXPAND", "AI_SUMMARIZE", "MANUAL_EDIT", etc.
+  originalText: string;
+  newText: string;
+  additionalInstructions?: string;
+  modelName?: GeminiModel; // Add model information
+}
+
+// We need different implementations for client and server
+const isClient = typeof window !== 'undefined';
+
+// Client-side implementation using localStorage
+export const getEditHistory = async (): Promise<EditEvent[]> => {
+  if (isClient) {
+    try {
+      const historyString = localStorage.getItem('editHistory');
+      return historyString ? JSON.parse(historyString) : [];
+    } catch (error) {
+      console.error('Error reading edit history:', error);
+      return [];
+    }
+  } else {
+    // Server-side implementation would use the file system
+    // but this should never be called directly from client components
+    console.warn('Attempted to get edit history on the server');
+    return [];
+  }
+};
+
+// Add a new edit event to the history
+export const addEditEvent = async (event: EditEvent): Promise<void> => {
+  if (isClient) {
+    try {
+      // Get current history from localStorage
+      const history = await getEditHistory();
+      
+      // Add new event
+      history.push(event);
+      
+      // Write updated history back to localStorage
+      localStorage.setItem('editHistory', JSON.stringify(history));
+      
+      // Also log to console for debugging
+      console.log('Edit logged:', event);
+    } catch (error) {
+      console.error('Error logging edit event:', error);
+    }
+  } else {
+    // Server-side implementation would use the file system
+    // but this should never be called directly from client components
+    console.warn('Attempted to add edit event on the server');
+  }
+};
+
+// Format the action name
+const formatActionName = (action: string | AIAction): string => {
+  if (typeof action === 'string') {
+    if (action.startsWith('AI_') || action.startsWith('MANUAL_')) {
+      return action;
+    }
+    return `AI_${action.toUpperCase()}`;
+  }
+  
+  // Handle AIAction enum
+  switch (action) {
+    case 'expand':
+      return 'AI_EXPAND';
+    case 'summarize':
+      return 'AI_SUMMARIZE';
+    case 'rephrase':
+      return 'AI_REPHRASE';
+    case 'revise':
+      return 'AI_REVISE';
+    default:
+      return `AI_ACTION`;
+  }
+};
+
+// Create a formatted edit event object
+export const createEditEvent = (
+  originalText: string,
+  newText: string,
+  action: string | AIAction,
+  additionalInstructions?: string,
+  modelName?: GeminiModel
+): EditEvent => {
+  return {
+    timestamp: new Date().toISOString(),
+    action: formatActionName(action),
+    originalText,
+    newText,
+    additionalInstructions,
+    modelName
+  };
+}; 
+
+================================================
+File: app/types/editor.types.ts
+================================================
+import { AIAction, GeminiModel } from '../services/geminiService';
+
+// Type for action history item
+export interface ActionHistoryItem {
+  action: AIAction;
+  instructions: string;
+  timestamp: number;
+  modelName: GeminiModel;
+}
+
+// Interface for tracking text changes for manual edits
+export interface TextChangeTracker {
+  previousContent: string;
+  changeTimer: NodeJS.Timeout | null;
+  isTracking: boolean;
+  ignoreNextChange: boolean; // Flag to ignore changes immediately following AI action
+}
+
+// Maximum number of actions to keep in history
+export const MAX_ACTION_HISTORY = 10; 
+
+================================================
+File: app/utils/highlightUtils.ts
+================================================
+import { Editor } from '@tiptap/react';
+import { Highlight } from '../components/editor/extensions/PersistentHighlight';
+
+/**
+ * Adds a highlight to the editor at the specified range
+ */
+export const addHighlight = (
+  editor: Editor,
+  from: number,
+  to: number,
+  highlightClass: string = 'highlight-yellow'
+): void => {
+  if (!editor || from === to) return;
+  
+  // Get the extension
+  const extension = editor.extensionManager.extensions.find(
+    (ext) => ext.name === 'persistentHighlight'
+  );
+  
+  if (!extension) {
+    console.error('PersistentHighlight extension not found');
+    return;
+  }
+  
+  // Add the highlight to storage
+  const highlights = [...extension.storage.highlights, { from, to, class: highlightClass }];
+  extension.storage.highlights = highlights;
+  
+  // Force a redraw
+  editor.view.dispatch(editor.state.tr);
+  
+  console.log('Highlight added:', { from, to, class: highlightClass });
+};
+
+/**
+ * Highlights the current selection in the editor
+ */
+export const highlightSelection = (
+  editor: Editor,
+  highlightClass: string = 'highlight-yellow'
+): void => {
+  if (!editor) return;
+  
+  const { from, to } = editor.state.selection;
+  if (from === to) return; // No selection
+  
+  addHighlight(editor, from, to, highlightClass);
+};
+
+/**
+ * Clears all highlights from the editor
+ */
+export const clearAllHighlights = (editor: Editor): void => {
+  if (!editor) return;
+  
+  // Get the extension
+  const extension = editor.extensionManager.extensions.find(
+    (ext) => ext.name === 'persistentHighlight'
+  );
+  
+  if (!extension) return;
+  
+  // Clear all highlights
+  extension.storage.highlights = [];
+  
+  // Force a redraw
+  editor.view.dispatch(editor.state.tr);
+};
+
+/**
+ * Gets all current highlights from the editor
+ */
+export const getHighlights = (editor: Editor): Highlight[] => {
+  if (!editor) return [];
+  
+  const extension = editor.extensionManager.extensions.find(
+    (extension) => extension.name === 'persistentHighlight'
+  );
+  
+  if (!extension) return [];
+  
+  return extension.storage.highlights || [];
+};
+
+/**
+ * Sets highlights in the editor
+ */
+export const setHighlights = (editor: Editor, highlights: Highlight[]): void => {
+  if (!editor) return;
+  
+  const extension = editor.extensionManager.extensions.find(
+    (extension) => extension.name === 'persistentHighlight'
+  );
+  
+  if (!extension) return;
+  
+  extension.storage.highlights = highlights;
+  editor.view.dispatch(editor.state.tr);
+}; 
+
+================================================
+File: app/utils/selectionUtils.ts
+================================================
+import { Editor } from '@tiptap/react';
+
+/**
+ * Gets the current selection range from the editor
+ */
+export const getSelectionRange = (editor: Editor): { from: number; to: number } | null => {
+  if (!editor || !editor.state.selection) return null;
+  
+  const { from, to } = editor.state.selection;
+  if (from === to) return null; // No selection
+  
+  return { from, to };
+};
+
+/**
+ * Gets the selected text from the editor
+ */
+export const getSelectedText = (editor: Editor): string => {
+  if (!editor) return '';
+  
+  const range = getSelectionRange(editor);
+  if (!range) return '';
+  
+  return editor.state.doc.textBetween(range.from, range.to);
+};
+
+/**
+ * Calculates the selection rectangle in the editor
+ */
+export const getSelectionRect = (): DOMRect | null => {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return null;
+  
+  const range = selection.getRangeAt(0);
+  if (!range) return null;
+  
+  return range.getBoundingClientRect();
+};
+
+/**
+ * Checks if the current selection is valid for showing a popup
+ */
+export const isValidSelectionForPopup = (editor: Editor): boolean => {
+  if (!editor) return false;
+  
+  const range = getSelectionRange(editor);
+  if (!range) return false;
+  
+  const selectedText = getSelectedText(editor);
+  return selectedText.trim().length > 0;
+}; 
+

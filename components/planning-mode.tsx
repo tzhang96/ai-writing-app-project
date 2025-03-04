@@ -7,16 +7,17 @@ import { CharactersTab } from '@/components/planning/characters-tab';
 import { WorldTab } from '@/components/planning/world-tab';
 import { PlotTab } from '@/components/planning/plot-tab';
 import { StyleTab } from '@/components/planning/style-tab';
-import { OutliningPanel } from '@/components/planning/outlining-panel';
+// import { OutliningPanel } from '@/components/planning/outlining-panel';
 import { ChatSidebar } from '@/components/chat-sidebar';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 interface PlanningModeProps {
   chatSidebarCollapsed: boolean;
   projectId: string;
+  aiScribeEnabled: boolean;
 }
 
-export function PlanningMode({ chatSidebarCollapsed, projectId }: PlanningModeProps) {
+export function PlanningMode({ chatSidebarCollapsed, projectId, aiScribeEnabled }: PlanningModeProps) {
   const [activeTab, setActiveTab] = useState('brainstorming');
   
   // Make sure activeTab is set to 'world' if it was previously 'setting'
@@ -33,7 +34,7 @@ export function PlanningMode({ chatSidebarCollapsed, projectId }: PlanningModePr
         <ResizablePanel defaultSize={80}>
           <ResizablePanelGroup direction="horizontal">
             {/* Left Panel - Planning Tabs */}
-            <ResizablePanel defaultSize={50} minSize={30} maxSize={70}>
+            <ResizablePanel defaultSize={100} minSize={30} maxSize={100}>
               <div className="h-full p-4 flex flex-col">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
                   <TabsList className="grid w-full grid-cols-5">
@@ -45,33 +46,26 @@ export function PlanningMode({ chatSidebarCollapsed, projectId }: PlanningModePr
                   </TabsList>
                   <div className="flex-1 overflow-hidden mt-4">
                     <TabsContent value="brainstorming" className="h-full">
-                      <BrainstormingTab />
+                      <BrainstormingTab aiScribeEnabled={aiScribeEnabled} />
                     </TabsContent>
                     <TabsContent value="characters" className="h-full">
-                      <CharactersTab />
+                      <CharactersTab aiScribeEnabled={aiScribeEnabled} />
                     </TabsContent>
                     <TabsContent value="world" className="h-full">
-                      <WorldTab />
+                      <WorldTab aiScribeEnabled={aiScribeEnabled} />
                     </TabsContent>
                     <TabsContent value="plot" className="h-full">
-                      <PlotTab />
+                      <PlotTab aiScribeEnabled={aiScribeEnabled} />
                     </TabsContent>
                     <TabsContent value="style" className="h-full">
-                      <StyleTab />
+                      <StyleTab aiScribeEnabled={aiScribeEnabled} />
                     </TabsContent>
                   </div>
                 </Tabs>
               </div>
             </ResizablePanel>
 
-            <ResizableHandle withHandle />
-
-            {/* Right Panel - Outlining */}
-            <ResizablePanel defaultSize={50} minSize={30} maxSize={70}>
-              <div className="h-full p-4">
-                <OutliningPanel />
-              </div>
-            </ResizablePanel>
+            {/* Removed the Outlining Panel */}
           </ResizablePanelGroup>
         </ResizablePanel>
 

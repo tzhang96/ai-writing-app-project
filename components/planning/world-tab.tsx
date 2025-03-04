@@ -14,7 +14,7 @@ interface World extends Entity {
 // Simple function to generate a unique ID
 const generateId = () => `id-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-export function WorldTab() {
+export function WorldTab({ aiScribeEnabled }: { aiScribeEnabled: boolean }) {
   const [worlds, setWorlds] = useState<World[]>([
     {
       id: '1',

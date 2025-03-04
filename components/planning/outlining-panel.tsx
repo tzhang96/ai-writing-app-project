@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronDown, ChevronRight, Plus, GripVertical } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { AiScribePopup, useAiScribe } from '@/components/ai-scribe-popup';
 import {
   DndContext,
   closestCenter,
@@ -94,7 +95,7 @@ interface EditingState {
   field: 'title' | 'description';
 }
 
-export function OutliningPanel() {
+export function OutliningPanel({ aiScribeEnabled }: { aiScribeEnabled: boolean }) {
   const [acts, setActs] = useState<Act[]>([
     {
       id: 'act-1',
@@ -164,6 +165,14 @@ export function OutliningPanel() {
 
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [editValue, setEditValue] = useState('');
+
+  // Create refs for textareas - these must be defined unconditionally
+  const actDescriptionRef = useRef<HTMLTextAreaElement>(null);
+  const sceneDescriptionRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Create AI Scribe hooks - these must be called unconditionally
+  const actAiScribe = useAiScribe(actDescriptionRef, aiScribeEnabled);
+  const sceneAiScribe = useAiScribe(sceneDescriptionRef, aiScribeEnabled);
 
   const toggleAct = (actId: string) => {
     setActs(acts.map(act => 
@@ -292,11 +301,12 @@ export function OutliningPanel() {
   };
 
   return (
-    <div className="h-full flex flex-col gap-4">
-      <div className="flex justify-between items-center pr-3">
-        <h2 className="text-2xl font-bold">Story Outline</h2>
-        <Button variant="outline" size="sm">
-          Generate...
+    <div className="h-full flex flex-col">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold">Outline</h2>
+        <Button variant="outline" size="sm" className="gap-1">
+          <Plus className="h-4 w-4" />
+          Add Act
         </Button>
       </div>
 
@@ -333,6 +343,7 @@ export function OutliningPanel() {
                           )}
                           {editing?.type === 'act' && editing.id === act.id && editing.field === 'description' ? (
                             <Textarea
+                              ref={actDescriptionRef}
                               value={editValue}
                               onChange={(e) => setEditValue(e.target.value)}
                               onBlur={handleEditSave}
@@ -439,6 +450,7 @@ export function OutliningPanel() {
                                                 )}
                                                 {editing?.type === 'scene' && editing.id === scene.id && editing.field === 'description' ? (
                                                   <Textarea
+                                                    ref={sceneDescriptionRef}
                                                     value={editValue}
                                                     onChange={(e) => setEditValue(e.target.value)}
                                                     onBlur={handleEditSave}
@@ -482,6 +494,41 @@ export function OutliningPanel() {
           </Button>
         </div>
       </ScrollArea>
+      
+      {/* Add AI Scribe Popups */}
+      {actAiScribe.showAiPopup && (
+        <AiScribePopup
+          selectedText={actAiScribe.selectedText}
+          position={actAiScribe.popupPosition}
+          onClose={actAiScribe.closePopup}
+          onAction={(action, instructions) => {
+            console.log(`Act: Action ${action} with instructions: ${instructions}`);
+            if (editing?.field === 'description' && editing.type === 'act') {
+              // Here you would typically call an API to process the text
+              // For now, we'll just append a note about the action
+              setEditValue(prev => `${prev} [${action} applied]`);
+            }
+            actAiScribe.handleAiAction(action, instructions);
+          }}
+        />
+      )}
+      
+      {sceneAiScribe.showAiPopup && (
+        <AiScribePopup
+          selectedText={sceneAiScribe.selectedText}
+          position={sceneAiScribe.popupPosition}
+          onClose={sceneAiScribe.closePopup}
+          onAction={(action, instructions) => {
+            console.log(`Scene: Action ${action} with instructions: ${instructions}`);
+            if (editing?.field === 'description' && editing.type === 'scene') {
+              // Here you would typically call an API to process the text
+              // For now, we'll just append a note about the action
+              setEditValue(prev => `${prev} [${action} applied]`);
+            }
+            sceneAiScribe.handleAiAction(action, instructions);
+          }}
+        />
+      )}
     </div>
   );
 } 
