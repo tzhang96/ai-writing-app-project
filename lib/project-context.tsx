@@ -1,9 +1,17 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useState, useEffect } from "react";
-import { Project } from './project-context';
+import * as React from 'react';
 import { SAMPLE_PROJECTS } from '@/components/projects/project-list';
 import { getProject } from './services/projects';
+
+export interface Project {
+  id: string;
+  title: string;
+  description: string;
+  coverImage?: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
 
 interface ProjectsContextType {
   activeProject: Project | null;
@@ -11,14 +19,14 @@ interface ProjectsContextType {
   getProjectById: (id: string) => Promise<Project | null>;
 }
 
-const ProjectsContext = createContext<ProjectsContextType>({
+const ProjectsContext = React.createContext<ProjectsContextType>({
   activeProject: null,
   setActiveProject: () => {},
   getProjectById: async () => null,
 });
 
-export function ProjectsProvider({ children }: { children: ReactNode }) {
-  const [activeProject, setActiveProject] = useState<Project | null>(null);
+export function ProjectsProvider({ children }: { children: React.ReactNode }) {
+  const [activeProject, setActiveProject] = React.useState<Project | null>(null);
 
   const getProjectById = async (id: string): Promise<Project | null> => {
     // First check sample projects
@@ -44,4 +52,4 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export const useProjects = () => useContext(ProjectsContext); 
+export const useProjects = () => React.useContext(ProjectsContext); 
