@@ -23,11 +23,12 @@ import { format } from 'date-fns';
 import { ProjectHeader } from '@/components/projects/project-header';
 import { ProjectDialog, ProjectFormData } from '@/components/projects/project-dialog';
 import { useFirebase } from '@/lib/firebase-context';
-import { createProject, deleteProject, getUserProjects, updateProject } from '@/lib/services/projects';
+import { createProject, deleteProject, updateProject, getAllProjects } from '@/lib/services/projects';
 import { Project } from '@/lib/project-context';
 import { useToast } from '@/hooks/use-toast';
+import { slugify } from '@/lib/utils';
 
-const SAMPLE_PROJECTS: Project[] = [
+export const SAMPLE_PROJECTS: Project[] = [
   {
     id: 'project-1',
     title: 'The Lost Kingdom',
@@ -57,25 +58,26 @@ export function ProjectList() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const { user } = useFirebase();
   const { toast } = useToast();
   
-  // Load projects from Firestore or use mock data
+  // Load projects from Firestore and combine with sample projects
   useEffect(() => {
     const loadProjects = async () => {
       setIsLoading(true);
-      console.log('Loading projects, user:', user?.uid);
+      console.log('Loading projects...');
       
       try {
-        if (!user) {
-          console.log('No user found, using sample projects');
-          setProjects(SAMPLE_PROJECTS);
-          return;
-        }
+        const firebaseProjects = await getAllProjects();
+        console.log('Loaded projects:', firebaseProjects);
         
-        const userProjects = await getUserProjects(user.uid);
-        console.log('Loaded projects:', userProjects);
-        setProjects(userProjects.length > 0 ? userProjects : SAMPLE_PROJECTS);
+        // Combine Firebase projects with sample projects
+        const combinedProjects = [
+          ...firebaseProjects,
+          ...SAMPLE_PROJECTS.filter(sample => 
+            !firebaseProjects.some(real => real.title === sample.title)
+          )
+        ];
+        setProjects(combinedProjects);
       } catch (error) {
         console.error('Error loading projects:', error);
         toast({
@@ -90,30 +92,12 @@ export function ProjectList() {
     };
     
     loadProjects();
-  }, [user, toast]);
+  }, [toast]);
   
   const handleCreateProject = async (data: ProjectFormData) => {
-    if (!user) {
-      console.log('No user found, adding to mock data');
-      const newProject: Project = {
-        id: `project-${Date.now()}`,
-        title: data.title,
-        description: data.description,
-        coverImage: data.coverImage,
-        lastEdited: new Date(),
-      };
-      setProjects([...projects, newProject]);
-      setCreateDialogOpen(false);
-      toast({
-        title: 'Success',
-        description: 'Project created successfully (in mock data).',
-      });
-      return;
-    }
-    
     try {
       console.log('Creating project with data:', data);
-      const newProject = await createProject(user.uid, {
+      const newProject = await createProject({
         title: data.title,
         description: data.description,
         coverImage: data.coverImage,
@@ -121,7 +105,13 @@ export function ProjectList() {
       });
       console.log('Created project:', newProject);
       
-      setProjects([...projects, newProject]);
+      // Update the projects list with both the new project and existing projects
+      const updatedProjects = [
+        newProject,
+        ...projects.filter(p => p.id !== newProject.id)
+      ];
+      setProjects(updatedProjects);
+      
       setCreateDialogOpen(false);
       toast({
         title: 'Success',
@@ -141,17 +131,8 @@ export function ProjectList() {
     e.preventDefault();
     e.stopPropagation();
     
-    if (!user) {
-      setProjects(projects.filter(project => project.id !== id));
-      toast({
-        title: 'Success',
-        description: 'Project deleted successfully (from mock data).',
-      });
-      return;
-    }
-    
     try {
-      await deleteProject(user.uid, id);
+      await deleteProject(id);
       setProjects(projects.filter(project => project.id !== id));
       toast({
         title: 'Success',
@@ -178,10 +159,10 @@ export function ProjectList() {
   };
   
   const handleUpdateProject = async (data: ProjectFormData) => {
-    if (!editingProject || !user) return;
+    if (!editingProject) return;
     
     try {
-      await updateProject(user.uid, editingProject.id, {
+      await updateProject(editingProject.id, {
         title: data.title,
         description: data.description,
         coverImage: data.coverImage,
@@ -247,70 +228,74 @@ export function ProjectList() {
               </Card>
               
               {/* Project Cards */}
-              {projects.map((project) => (
-                <Link 
-                  href={`/project/${project.id}`} 
-                  key={project.id}
-                  className="block group"
-                >
-                  <Card className="h-64 overflow-hidden relative hover:shadow-md transition-shadow">
-                    {project.coverImage && (
-                      <div className="absolute inset-0 bg-cover bg-center z-0" style={{ 
-                        backgroundImage: `url(${project.coverImage})`,
-                        opacity: 0.2
-                      }} />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background z-0" />
-                    <div className="relative z-10 h-full flex flex-col">
-                      <CardHeader className="flex flex-row items-start justify-between p-6">
-                        <div className="flex-1 pr-8">
-                          <CardTitle className="text-xl">{project.title}</CardTitle>
-                          <CardDescription className="line-clamp-2 mt-1">
-                            {project.description}
-                          </CardDescription>
-                        </div>
-                        <div className="absolute top-4 right-4">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-                                onClick={(e) => e.preventDefault()}
-                              >
-                                <MoreVertical className="h-4 w-4 text-muted-foreground" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={(e) => handleEditProject(project.id, e)}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={(e) => handleExportProject(project.id, e)}>
-                                <Download className="h-4 w-4 mr-2" />
-                                Export
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={(e) => handleDeleteProject(project.id, e)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </CardHeader>
-                      <CardFooter className="mt-auto">
-                        <p className="text-sm text-muted-foreground">
-                          Last edited on {format(project.lastEdited, 'MMM d, yyyy')}
-                        </p>
-                      </CardFooter>
-                    </div>
-                  </Card>
-                </Link>
-              ))}
+              {projects.map((project) => {
+                const projectSlug = slugify(project.title);
+                console.log('Creating link for project:', { title: project.title, slug: projectSlug });
+                return (
+                  <Link 
+                    href={`/project/${projectSlug}`} 
+                    key={project.id}
+                    className="block group"
+                  >
+                    <Card className="h-64 overflow-hidden relative hover:shadow-md transition-shadow">
+                      {project.coverImage && (
+                        <div className="absolute inset-0 bg-cover bg-center z-0" style={{ 
+                          backgroundImage: `url(${project.coverImage})`,
+                          opacity: 0.2
+                        }} />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background z-0" />
+                      <div className="relative z-10 h-full flex flex-col">
+                        <CardHeader className="flex flex-row items-start justify-between p-6">
+                          <div className="flex-1 pr-8">
+                            <CardTitle className="text-xl">{project.title}</CardTitle>
+                            <CardDescription className="line-clamp-2 mt-1">
+                              {project.description}
+                            </CardDescription>
+                          </div>
+                          <div className="absolute top-4 right-4">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                                  onClick={(e) => e.preventDefault()}
+                                >
+                                  <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={(e) => handleEditProject(project.id, e)}>
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => handleExportProject(project.id, e)}>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Export
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={(e) => handleDeleteProject(project.id, e)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </CardHeader>
+                        <CardFooter className="mt-auto">
+                          <p className="text-sm text-muted-foreground">
+                            Last edited on {format(project.lastEdited, 'MMM d, yyyy')}
+                          </p>
+                        </CardFooter>
+                      </div>
+                    </Card>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>

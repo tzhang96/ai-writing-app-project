@@ -35,6 +35,7 @@ interface HeaderProps {
   aiScribeEnabled: boolean;
   setAiScribeEnabled: (enabled: boolean) => void;
   projectId: string;
+  projectTitle?: string;
 }
 
 export function Header({ 
@@ -44,7 +45,8 @@ export function Header({
   setChatSidebarCollapsed, 
   aiScribeEnabled,
   setAiScribeEnabled,
-  projectId 
+  projectId,
+  projectTitle 
 }: HeaderProps) {
   return (
     <header className="border-b">
@@ -53,6 +55,15 @@ export function Header({
           <PenLine className="h-6 w-6" />
           <h1 className="text-xl font-bold">Scribe</h1>
         </Link>
+        
+        {projectTitle && (
+          <>
+            <Separator orientation="vertical" className="mx-4 h-6" />
+            <div className="flex items-center">
+              <h2 className="text-lg font-semibold">{projectTitle}</h2>
+            </div>
+          </>
+        )}
         
         <div className="ml-auto flex items-center gap-4">
           <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg">
