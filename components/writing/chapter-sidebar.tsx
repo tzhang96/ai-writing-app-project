@@ -1,293 +1,174 @@
 "use client";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { 
-  ChevronDown, 
-  ChevronRight, 
-  Plus, 
-  File, 
-  Trash2, 
-  Edit, 
-  Check, 
-  X 
-} from 'lucide-react';
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+import { useState, useEffect } from 'react';
+import { ChapterList } from './chapter-list';
+import { ChapterDetail } from './chapter-detail';
+import { Chapter, ChapterMetadata } from './chapter-types';
+import { ChevronLeft, BookText } from 'lucide-react';
+import { Button } from '../ui/button';
 
-interface Chapter {
-  id: string;
-  title: string;
-  sections: Section[];
-  expanded: boolean;
-}
-
-interface Section {
-  id: string;
-  title: string;
+export interface ChapterSidebarProps {
+  activeChapterId: string | null;
+  setActiveChapterId: (id: string | null) => void;
+  onViewModeChange?: (mode: 'list' | 'detail') => void;
 }
 
 export function ChapterSidebar({ 
   activeChapterId, 
-  setActiveChapterId 
-}: { 
-  activeChapterId: string | null;
-  setActiveChapterId: (id: string | null) => void;
-}) {
+  setActiveChapterId,
+  onViewModeChange
+}: ChapterSidebarProps) {
+  // State for view mode (list or detail)
+  const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
+  
+  // Notify parent component when view mode changes
+  useEffect(() => {
+    if (onViewModeChange) {
+      onViewModeChange(viewMode);
+    }
+  }, [viewMode, onViewModeChange]);
+  
+  // Sample initial metadata
+  const defaultMetadata: ChapterMetadata = {
+    storyBeats: '',
+    characters: [],
+    settings: [],
+    plotPoints: [],
+    notes: ''
+  };
+  
   const [chapters, setChapters] = useState<Chapter[]>([
     {
       id: 'chapter-1',
       title: 'Chapter 1: The Beginning',
-      sections: [
-        { id: 'section-1-1', title: 'Introduction' },
-        { id: 'section-1-2', title: 'First Scene' }
-      ],
-      expanded: true
+      metadata: {
+        storyBeats: 'Protagonist discovers an ancient manuscript in the university library. The manuscript contains strange symbols that appear to be a code.',
+        characters: ['Professor Alex Jenkins', 'Main Character', 'Librarian'],
+        settings: ['University Library', 'Research Office'],
+        plotPoints: ['Discovery of the manuscript', 'First decoding attempt'],
+        notes: 'Focus on building mystery and curiosity about the manuscript origins'
+      },
+      order: 0
     },
     {
       id: 'chapter-2',
       title: 'Chapter 2: The Middle',
-      sections: [
-        { id: 'section-2-1', title: 'Conflict Arises' }
-      ],
-      expanded: false
+      metadata: {
+        storyBeats: 'The protagonist starts to decode the manuscript and realizes it points to a hidden location.',
+        characters: ['Professor Alex Jenkins', 'Main Character', 'Mysterious Caller'],
+        settings: ['Research Lab', 'Coffee Shop'],
+        plotPoints: ['Phone call warning', 'Decision to investigate further'],
+        notes: 'Increase tension with the mysterious caller, imply potential danger ahead'
+      },
+      order: 1
     },
     {
       id: 'chapter-3',
       title: 'Chapter 3: The End',
-      sections: [],
-      expanded: false
+      metadata: {
+        storyBeats: 'Travel to Istanbul to follow the coordinates found in the manuscript. Discovery of an ancient hidden chamber beneath the city.',
+        characters: ['Main Character', 'Local Guide', 'Rival Archaeologist'],
+        settings: ['Istanbul Old City', 'Underground Chamber'],
+        plotPoints: ['Arrival in Istanbul', 'Finding the hidden entrance', 'Confrontation with rival'],
+        notes: 'Climactic discovery scene with vivid descriptions of the chamber and artifacts'
+      },
+      order: 2
     }
   ]);
   
-  const [editingItem, setEditingItem] = useState<{ id: string, type: 'chapter' | 'section' } | null>(null);
-  const [editingTitle, setEditingTitle] = useState('');
+  // Handle chapter selection (show detail view)
+  const handleChapterSelect = (id: string) => {
+    setActiveChapterId(id);
+    setViewMode('detail');
+  };
   
-  const toggleChapterExpand = (chapterId: string) => {
+  // Handle go back to list
+  const handleGoBackToList = () => {
+    setViewMode('list');
+  };
+  
+  // Find the active chapter
+  const getActiveChapter = (): Chapter | undefined => {
+    return chapters.find(chapter => chapter.id === activeChapterId);
+  };
+  
+  // Update a specific chapter
+  const updateChapter = (updatedChapter: Chapter) => {
     setChapters(chapters.map(chapter => 
-      chapter.id === chapterId 
-        ? { ...chapter, expanded: !chapter.expanded } 
+      chapter.id === updatedChapter.id 
+        ? updatedChapter 
         : chapter
     ));
   };
-  
+
+  // Add a new chapter
   const addChapter = () => {
-    const newId = `chapter-${Date.now()}`;
-    setChapters([
-      ...chapters,
-      {
-        id: newId,
-        title: `Chapter ${chapters.length + 1}`,
-        sections: [],
-        expanded: false
-      }
-    ]);
-  };
-  
-  const addSection = (chapterId: string) => {
-    const chapter = chapters.find(c => c.id === chapterId);
-    if (!chapter) return;
+    const newChapter: Chapter = {
+      id: `chapter-${Date.now()}`,
+      title: `New Chapter`,
+      metadata: { ...defaultMetadata },
+      order: chapters.length
+    };
     
-    const newId = `section-${chapterId}-${Date.now()}`;
-    setChapters(chapters.map(c => 
-      c.id === chapterId 
-        ? { 
-            ...c, 
-            sections: [...c.sections, { id: newId, title: `New Section` }],
-            expanded: true
-          } 
-        : c
-    ));
+    setChapters([...chapters, newChapter]);
   };
   
-  const startEditing = (id: string, type: 'chapter' | 'section', currentTitle: string) => {
-    setEditingItem({ id, type });
-    setEditingTitle(currentTitle);
-  };
-  
-  const saveEditing = () => {
-    if (!editingItem) return;
-    
-    if (editingItem.type === 'chapter') {
-      setChapters(chapters.map(chapter => 
-        chapter.id === editingItem.id 
-          ? { ...chapter, title: editingTitle } 
-          : chapter
-      ));
-    } else {
-      setChapters(chapters.map(chapter => ({
-        ...chapter,
-        sections: chapter.sections.map(section => 
-          section.id === editingItem.id 
-            ? { ...section, title: editingTitle } 
-            : section
-        )
-      })));
-    }
-    
-    setEditingItem(null);
-  };
-  
-  const cancelEditing = () => {
-    setEditingItem(null);
-  };
-  
-  const deleteChapter = (chapterId: string) => {
-    setChapters(chapters.filter(chapter => chapter.id !== chapterId));
-    if (activeChapterId === chapterId) {
-      setActiveChapterId(null);
-    }
-  };
-  
-  const deleteSection = (sectionId: string) => {
-    setChapters(chapters.map(chapter => ({
-      ...chapter,
-      sections: chapter.sections.filter(section => section.id !== sectionId)
-    })));
+  // Get the active chapter title
+  const getActiveChapterTitle = (): string => {
+    const activeChapter = getActiveChapter();
+    return activeChapter ? activeChapter.title : "Chapter Details";
   };
   
   return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold text-lg">Chapters</h2>
-        <Button variant="ghost" size="icon" onClick={addChapter}>
-          <Plus className="h-4 w-4" />
-        </Button>
+    <div className="flex flex-col h-full">
+      {/* Consistent Header */}
+      <div className="border-b p-4 flex items-center">
+        <div className="flex items-center gap-2">
+          {viewMode === 'detail' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleGoBackToList}
+              className="mr-1"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          )}
+          <h2 className="text-lg font-semibold flex items-center">
+            <BookText className="h-5 w-5 mr-2" />
+            {viewMode === 'list' ? 'Chapters' : getActiveChapterTitle()}
+          </h2>
+        </div>
       </div>
       
-      <div className="space-y-1">
-        {chapters.map(chapter => (
-          <div key={chapter.id} className="space-y-1">
-            <ContextMenu>
-              <ContextMenuTrigger>
-                <div 
-                  className={`flex items-center gap-1 px-2 py-1.5 rounded-md ${
-                    activeChapterId === chapter.id ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
-                  }`}
-                >
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-5 w-5 p-0"
-                    onClick={() => toggleChapterExpand(chapter.id)}
-                  >
-                    {chapter.expanded ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                  </Button>
-                  
-                  <div 
-                    className="flex-1 cursor-pointer"
-                    onClick={() => setActiveChapterId(chapter.id)}
-                  >
-                    {editingItem?.id === chapter.id && editingItem.type === 'chapter' ? (
-                      <div className="flex items-center gap-1">
-                        <Input
-                          value={editingTitle}
-                          onChange={(e) => setEditingTitle(e.target.value)}
-                          className="h-7 py-1"
-                          autoFocus
-                        />
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={saveEditing}>
-                          <Check className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={cancelEditing}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-sm font-medium">{chapter.title}</span>
-                    )}
-                  </div>
-                  
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                    onClick={() => addSection(chapter.id)}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                </div>
-              </ContextMenuTrigger>
-              <ContextMenuContent>
-                <ContextMenuItem onClick={() => startEditing(chapter.id, 'chapter', chapter.title)}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Rename
-                </ContextMenuItem>
-                <ContextMenuItem onClick={() => addSection(chapter.id)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Section
-                </ContextMenuItem>
-                <ContextMenuItem 
-                  onClick={() => deleteChapter(chapter.id)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
-            
-            {chapter.expanded && chapter.sections.length > 0 && (
-              <div className="ml-6 space-y-1">
-                {chapter.sections.map(section => (
-                  <ContextMenu key={section.id}>
-                    <ContextMenuTrigger>
-                      <div 
-                        className={`flex items-center gap-2 px-2 py-1.5 rounded-md ${
-                          activeChapterId === section.id ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
-                        }`}
-                        onClick={() => setActiveChapterId(section.id)}
-                      >
-                        <File className="h-4 w-4 text-muted-foreground" />
-                        
-                        {editingItem?.id === section.id && editingItem.type === 'section' ? (
-                          <div className="flex items-center gap-1 flex-1">
-                            <Input
-                              value={editingTitle}
-                              onChange={(e) => setEditingTitle(e.target.value)}
-                              className="h-7 py-1"
-                              autoFocus
-                            />
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={saveEditing}>
-                              <Check className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={cancelEditing}>
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="text-sm">{section.title}</span>
-                        )}
-                      </div>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent>
-                      <ContextMenuItem onClick={() => startEditing(section.id, 'section', section.title)}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Rename
-                      </ContextMenuItem>
-                      <ContextMenuItem 
-                        onClick={() => deleteSection(section.id)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+      {/* Content Area */}
+      <div className="flex-1 overflow-auto">
+        {viewMode === 'list' ? (
+          <ChapterList
+            chapters={chapters}
+            activeChapterId={activeChapterId}
+            onChapterSelect={handleChapterSelect}
+            onChaptersChange={setChapters}
+          />
+        ) : (
+          activeChapterId && getActiveChapter() ? (
+            <ChapterDetail
+              chapter={getActiveChapter()!}
+              onGoBack={handleGoBackToList}
+              onChapterUpdate={updateChapter}
+            />
+          ) : (
+            <div className="p-4 text-center">
+              No chapter selected. 
+              <button 
+                className="text-primary hover:underline ml-2" 
+                onClick={handleGoBackToList}
+              >
+                Go back to list
+              </button>
+            </div>
+          )
+        )}
       </div>
     </div>
   );

@@ -20,15 +20,16 @@ interface WritingModeProps {
 export function WritingMode({ chatSidebarCollapsed, projectId, aiScribeEnabled }: WritingModeProps) {
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
   const [activeChapterId, setActiveChapterId] = useState<string | null>('chapter-1');
+  const [isChapterDetailView, setIsChapterDetailView] = useState(false);
   
   return (
     <div className="h-full">
       <ResizablePanelGroup direction="horizontal">
         {/* Left Sidebar (Chapters) */}
         <ResizablePanel 
-          defaultSize={20} 
-          minSize={15}
-          maxSize={30}
+          defaultSize={isChapterDetailView ? 35 : 25} 
+          minSize={20}
+          maxSize={isChapterDetailView ? 45 : 35}
           collapsible={true}
           collapsedSize={0}
           onCollapse={() => setLeftSidebarCollapsed(true)}
@@ -39,6 +40,7 @@ export function WritingMode({ chatSidebarCollapsed, projectId, aiScribeEnabled }
               <ChapterSidebar 
                 activeChapterId={activeChapterId} 
                 setActiveChapterId={setActiveChapterId} 
+                onViewModeChange={(mode) => setIsChapterDetailView(mode === 'detail')}
               />
             </ScrollArea>
           </div>
@@ -47,7 +49,7 @@ export function WritingMode({ chatSidebarCollapsed, projectId, aiScribeEnabled }
         <ResizableHandle withHandle />
         
         {/* Main Editor Area */}
-        <ResizablePanel defaultSize={80}>
+        <ResizablePanel defaultSize={75}>
           <TextEditor 
             activeChapterId={activeChapterId} 
             aiScribeEnabled={aiScribeEnabled} 
