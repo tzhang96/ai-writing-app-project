@@ -1,33 +1,36 @@
 "use client";
 
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { AiEnhancedTextarea } from '@/components/ui/ai-enhanced-textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Palette } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
+import { Plus, Trash2 } from 'lucide-react';
+import { useProjects } from '@/lib/project-context';
+import { StyleExample, Style, getStyle, saveStyle } from '@/lib/services/entities';
+import { useToast } from '@/components/ui/use-toast';
 
-interface StyleExample {
-  id: string;
-  title: string;
-  content: string;
+// Debounce helper function
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
 }
 
-function StyleExampleCard({ example, onUpdate, onDelete }: {
+interface StyleExampleCard {
   example: StyleExample;
   onUpdate: (id: string, field: keyof StyleExample, value: string) => void;
   onDelete: (id: string) => void;
-}) {
-  const handleAiContent = (newContent: string) => {
-    if (newContent) {
-      onUpdate(example.id, 'content', example.content + newContent);
-    }
-  };
+}
 
+function StyleExampleCard({ example, onUpdate, onDelete }: StyleExampleCard) {
   return (
     <div className="mb-3 border rounded-md">
       <div className="p-2 pb-1">
@@ -49,13 +52,11 @@ function StyleExampleCard({ example, onUpdate, onDelete }: {
         </div>
       </div>
       <div className="p-2 pt-0">
-        <AiEnhancedTextarea
+        <Textarea
           value={example.content}
           onChange={(e) => onUpdate(example.id, 'content', e.target.value)}
           className="min-h-[80px] max-h-[120px] border-none focus-visible:ring-0 text-sm"
           placeholder="Write your style example here..."
-          aiScribeEnabled={true}
-          onAiContent={handleAiContent}
         />
       </div>
     </div>
@@ -63,148 +64,202 @@ function StyleExampleCard({ example, onUpdate, onDelete }: {
 }
 
 export function StyleTab({ aiScribeEnabled }: { aiScribeEnabled: boolean }) {
+  const { activeProject } = useProjects();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  
   const [styleNotes, setStyleNotes] = useState({
-    voice: "Notes about your narrative voice and tone...",
-    pov: "Notes about your point of view (first person, third person, etc.)...",
-    tense: "Notes about your tense (past, present, etc.)...",
-    dialogue: "Notes about your dialogue style and formatting..."
+    voice: "",
+    pov: "",
+    tense: "",
+    dialogue: ""
   });
   
-  const [styleExamples, setStyleExamples] = useState<StyleExample[]>([
-    { id: '1', title: 'Example Passage', content: 'This is an example of your writing style...' }
-  ]);
-  
+  const [styleExamples, setStyleExamples] = useState<StyleExample[]>([]);
+  const [styleId, setStyleId] = useState<string | null>(null);
+
+  // Load initial style data
+  useEffect(() => {
+    async function loadStyle() {
+      if (!activeProject?.id) return;
+      
+      try {
+        setIsLoading(true);
+        const style = await getStyle(activeProject.id);
+        
+        if (style) {
+          setStyleId(style.id);
+          setStyleNotes({
+            voice: style.voice || "",
+            pov: style.pov || "",
+            tense: style.tense || "",
+            dialogue: style.dialogue || ""
+          });
+          setStyleExamples(style.examples || []);
+        }
+      } catch (error) {
+        console.error('Error loading style:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load style settings",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    loadStyle();
+  }, [activeProject?.id, toast]);
+
+  // Debounced save to Firestore
+  const debouncedSave = useCallback(
+    debounce(async (updates: Partial<Style>) => {
+      if (!activeProject?.id) return;
+      
+      try {
+        await saveStyle(activeProject.id, {
+          ...styleNotes,
+          examples: styleExamples,
+          ...updates
+        });
+      } catch (error) {
+        console.error('Error saving style:', error);
+        toast({
+          title: "Error",
+          description: "Failed to save style settings",
+          variant: "destructive"
+        });
+      }
+    }, 1000),
+    [activeProject?.id, styleNotes, styleExamples, toast]
+  );
+
   const updateStyleNote = (field: keyof typeof styleNotes, value: string) => {
-    setStyleNotes({ ...styleNotes, [field]: value });
-  };
-  
-  const addStyleExample = () => {
-    const newId = Date.now().toString();
-    setStyleExamples([...styleExamples, { id: newId, title: 'New Example', content: '' }]);
+    // Update local state immediately
+    setStyleNotes(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Debounce the save to Firestore
+    debouncedSave({ [field]: value });
   };
   
   const updateStyleExample = (id: string, field: keyof StyleExample, value: string) => {
-    setStyleExamples(styleExamples.map(example => 
-      example.id === id 
-        ? { ...example, [field]: value } 
-        : example
-    ));
+    // Update local state immediately
+    setStyleExamples(prev => {
+      const newExamples = prev.map(example => 
+        example.id === id 
+          ? { ...example, [field]: value } 
+          : example
+      );
+      
+      // Debounce the save to Firestore with all examples
+      debouncedSave({ examples: newExamples });
+      
+      return newExamples;
+    });
+  };
+
+  const addStyleExample = () => {
+    const newId = Date.now().toString();
+    const newExample = { id: newId, title: 'New Example', content: '' };
+    
+    // Update local state immediately
+    setStyleExamples(prev => {
+      const newExamples = [...prev, newExample];
+      
+      // Save to Firestore with all examples
+      debouncedSave({ examples: newExamples });
+      
+      return newExamples;
+    });
   };
   
   const deleteStyleExample = (id: string) => {
-    setStyleExamples(styleExamples.filter(example => example.id !== id));
+    // Update local state immediately
+    setStyleExamples(prev => {
+      const newExamples = prev.filter(example => example.id !== id);
+      
+      // Save to Firestore with remaining examples
+      debouncedSave({ examples: newExamples });
+      
+      return newExamples;
+    });
   };
-  
-  const handleVoiceAiContent = (newContent: string) => {
-    if (newContent) {
-      setStyleNotes({ ...styleNotes, voice: styleNotes.voice + newContent });
-    }
-  };
-  
-  const handlePovAiContent = (newContent: string) => {
-    if (newContent) {
-      setStyleNotes({ ...styleNotes, pov: styleNotes.pov + newContent });
-    }
-  };
-  
-  const handleTenseAiContent = (newContent: string) => {
-    if (newContent) {
-      setStyleNotes({ ...styleNotes, tense: styleNotes.tense + newContent });
-    }
-  };
-  
-  const handleDialogueAiContent = (newContent: string) => {
-    if (newContent) {
-      setStyleNotes({ ...styleNotes, dialogue: styleNotes.dialogue + newContent });
-    }
-  };
+
+  if (!activeProject) {
+    return null;
+  }
   
   return (
     <div className="h-full flex flex-col">
-      <Card className="flex-1 overflow-hidden">
-        <CardContent className="p-0">
-          <ScrollArea className="h-[calc(100vh-180px)]">
-            <div className="space-y-4 p-6 pb-8">
-              {/* Voice & Tone Section */}
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Voice & Tone</Label>
-                <AiEnhancedTextarea 
-                  className="min-h-[80px] text-sm resize-none"
-                  placeholder="Describe your narrative voice and tone..."
+      <Card className="flex-1">
+        <CardHeader>
+          <CardTitle>Writing Style</CardTitle>
+          <CardDescription>Define and document your writing style preferences.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[calc(100vh-280px)]">
+            <div className="space-y-6">
+              <div>
+                <Label>Voice & Tone</Label>
+                <Textarea
                   value={styleNotes.voice}
                   onChange={(e) => updateStyleNote('voice', e.target.value)}
-                  aiScribeEnabled={aiScribeEnabled}
-                  onAiContent={handleVoiceAiContent}
+                  className="min-h-[100px] resize-none"
+                  placeholder="Describe your story's voice and tone..."
                 />
               </div>
               
-              {/* Point of View Section */}
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Point of View</Label>
-                <AiEnhancedTextarea 
-                  className="min-h-[80px] text-sm resize-none"
-                  placeholder="Describe your point of view approach..."
+              <div>
+                <Label>Point of View</Label>
+                <Textarea
                   value={styleNotes.pov}
                   onChange={(e) => updateStyleNote('pov', e.target.value)}
-                  aiScribeEnabled={aiScribeEnabled}
-                  onAiContent={handlePovAiContent}
+                  className="min-h-[100px] resize-none"
+                  placeholder="Describe your story's point of view..."
                 />
               </div>
               
-              {/* Tense Section */}
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Tense</Label>
-                <AiEnhancedTextarea 
-                  className="min-h-[80px] text-sm resize-none"
-                  placeholder="Describe your tense preferences..."
+              <div>
+                <Label>Tense</Label>
+                <Textarea
                   value={styleNotes.tense}
                   onChange={(e) => updateStyleNote('tense', e.target.value)}
-                  aiScribeEnabled={aiScribeEnabled}
-                  onAiContent={handleTenseAiContent}
+                  className="min-h-[100px] resize-none"
+                  placeholder="Describe your story's tense..."
                 />
               </div>
               
-              {/* Dialogue Section */}
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Dialogue</Label>
-                <AiEnhancedTextarea 
-                  className="min-h-[80px] text-sm resize-none"
-                  placeholder="Describe your dialogue style and formatting..."
+              <div>
+                <Label>Dialogue Style</Label>
+                <Textarea
                   value={styleNotes.dialogue}
                   onChange={(e) => updateStyleNote('dialogue', e.target.value)}
-                  aiScribeEnabled={aiScribeEnabled}
-                  onAiContent={handleDialogueAiContent}
+                  className="min-h-[100px] resize-none"
+                  placeholder="Describe your story's dialogue style..."
                 />
               </div>
               
-              <Separator className="my-3" />
-              
-              {/* Style Examples Section */}
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <Label className="text-sm font-medium">Style Examples</Label>
+                <div className="flex items-center justify-between mb-4">
+                  <Label>Style Examples</Label>
+                  <Button onClick={addStyleExample} variant="outline" size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Example
+                  </Button>
                 </div>
                 
-                <div className="space-y-2">
-                  {styleExamples.map(example => (
-                    <StyleExampleCard
-                      key={example.id}
-                      example={example}
-                      onUpdate={updateStyleExample}
-                      onDelete={deleteStyleExample}
-                    />
-                  ))}
-                </div>
-                
-                <Button 
-                  onClick={addStyleExample} 
-                  size="sm" 
-                  variant="outline" 
-                  className="mt-3 h-7 text-xs gap-1"
-                >
-                  <Plus className="h-3 w-3" />
-                  Add Example
-                </Button>
+                {styleExamples.map((example) => (
+                  <StyleExampleCard
+                    key={example.id}
+                    example={example}
+                    onUpdate={updateStyleExample}
+                    onDelete={deleteStyleExample}
+                  />
+                ))}
               </div>
             </div>
           </ScrollArea>
