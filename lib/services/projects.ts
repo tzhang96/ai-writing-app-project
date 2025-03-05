@@ -6,34 +6,52 @@ import {
   deleteDoc,
   getDoc,
   getDocs,
-  query,
-  where,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Project, ProjectData } from '@/lib/project-context';
+import { Project } from '@/lib/project-context';
 
-export function getUserNotesCollection(userId: string) {
-  return collection(db, 'users', userId, 'notes');
+// Use a single collection for all projects
+export function getProjectsCollection() {
+  return collection(db, 'projects');
 }
 
-export async function createProject(userId: string, project: Omit<Project, 'id'>): Promise<Project> {
+export async function createProject(project: Omit<Project, 'id'>): Promise<Project> {
   try {
-    const notesCollection = getUserNotesCollection(userId);
-    const projectData: ProjectData = {
-      ...project,
-      userId,
-    };
+    const projectsCollection = getProjectsCollection();
     
-    const docRef = await addDoc(notesCollection, {
-      ...projectData,
+    // Create the project document with required fields
+    const projectData = {
+      title: project.title,
+      description: project.description,
       createdAt: serverTimestamp(),
       lastEdited: serverTimestamp(),
-    });
+    };
+
+    // Only add coverImage if it exists
+    if (project.coverImage) {
+      Object.assign(projectData, { coverImage: project.coverImage });
+    }
     
+    // Create the project document
+    const docRef = await addDoc(projectsCollection, projectData);
+    
+    // Get the created document to return with server timestamps
+    const docSnap = await getDoc(docRef);
+    const data = docSnap.data();
+    
+    if (!data) {
+      throw new Error('Failed to create project');
+    }
+    
+    // Return the project with the correct timestamp
     return {
       id: docRef.id,
-      ...project,
+      title: data.title,
+      description: data.description,
+      coverImage: data.coverImage || undefined,
+      lastEdited: data.lastEdited.toDate(),
+      createdAt: data.createdAt?.toDate(),
     };
   } catch (error) {
     console.error('Error creating project:', error);
@@ -41,9 +59,9 @@ export async function createProject(userId: string, project: Omit<Project, 'id'>
   }
 }
 
-export async function updateProject(userId: string, projectId: string, data: Partial<Project>) {
+export async function updateProject(projectId: string, data: Partial<Project>) {
   try {
-    const projectRef = doc(getUserNotesCollection(userId), projectId);
+    const projectRef = doc(getProjectsCollection(), projectId);
     await updateDoc(projectRef, {
       ...data,
       lastEdited: serverTimestamp(),
@@ -54,9 +72,9 @@ export async function updateProject(userId: string, projectId: string, data: Par
   }
 }
 
-export async function deleteProject(userId: string, projectId: string) {
+export async function deleteProject(projectId: string) {
   try {
-    const projectRef = doc(getUserNotesCollection(userId), projectId);
+    const projectRef = doc(getProjectsCollection(), projectId);
     await deleteDoc(projectRef);
   } catch (error) {
     console.error('Error deleting project:', error);
@@ -64,9 +82,9 @@ export async function deleteProject(userId: string, projectId: string) {
   }
 }
 
-export async function getProject(userId: string, projectId: string): Promise<Project | null> {
+export async function getProject(projectId: string): Promise<Project | null> {
   try {
-    const projectRef = doc(getUserNotesCollection(userId), projectId);
+    const projectRef = doc(getProjectsCollection(), projectId);
     const projectSnap = await getDoc(projectRef);
     if (projectSnap.exists()) {
       const data = projectSnap.data();
@@ -86,10 +104,10 @@ export async function getProject(userId: string, projectId: string): Promise<Pro
   }
 }
 
-export async function getUserProjects(userId: string): Promise<Project[]> {
+export async function getAllProjects(): Promise<Project[]> {
   try {
-    const notesCollection = getUserNotesCollection(userId);
-    const querySnapshot = await getDocs(notesCollection);
+    const projectsCollection = getProjectsCollection();
+    const querySnapshot = await getDocs(projectsCollection);
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
       return {
@@ -102,7 +120,7 @@ export async function getUserProjects(userId: string): Promise<Project[]> {
       };
     });
   } catch (error) {
-    console.error('Error getting user projects:', error);
+    console.error('Error getting projects:', error);
     throw error;
   }
 } 
