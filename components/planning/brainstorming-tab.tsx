@@ -14,7 +14,6 @@ import { AiScribePopup, useAiScribe } from '@/components/ai-scribe-popup';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/lib/firebase-context';
 import { processNote } from '@/lib/services/ai';
-import { useProjects } from '@/lib/project-context';
 import { FirebaseError } from 'firebase/app';
 
 interface Brainstorm {
@@ -161,7 +160,6 @@ export function BrainstormingTab({ aiScribeEnabled }: BrainstormingTabProps) {
   const [filterTerm, setFilterTerm] = useState('');
   const { toast } = useToast();
   const { user } = useFirebase();
-  const { activeProject } = useProjects();
 
   const addBrainstorm = () => {
     const now = new Date();

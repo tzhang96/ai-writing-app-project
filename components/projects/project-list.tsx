@@ -28,6 +28,7 @@ import { Project } from '@/lib/project-context';
 import { useToast } from '@/hooks/use-toast';
 import { slugify } from '@/lib/utils';
 
+// Export sample projects for use in other components
 export const SAMPLE_PROJECTS: Project[] = [
   {
     id: 'project-1',
@@ -55,20 +56,40 @@ export const SAMPLE_PROJECTS: Project[] = [
 export function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<Error | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const { toast } = useToast();
+  const { user, error: authError } = useFirebase();
   
   // Load projects from Firestore and combine with sample projects
   useEffect(() => {
     const loadProjects = async () => {
       setIsLoading(true);
-      console.log('Loading projects...');
+      setLoadError(null);
+      console.log('Loading projects...', { authState: !!user, authError });
       
       try {
-        const firebaseProjects = await getAllProjects();
-        console.log('Loaded projects:', firebaseProjects);
+        // If there's an auth error, just use sample projects
+        if (authError) {
+          console.warn('Auth error detected, using only sample projects:', authError);
+          setProjects(SAMPLE_PROJECTS);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Try to load projects from Firebase
+        console.log('Attempting to load projects from Firebase...');
+        let firebaseProjects: Project[] = [];
+        
+        try {
+          firebaseProjects = await getAllProjects();
+          console.log('Successfully loaded projects from Firebase:', firebaseProjects);
+        } catch (err) {
+          console.error('Error loading projects from Firebase:', err);
+          // Continue with sample projects
+        }
         
         // Combine Firebase projects with sample projects
         const combinedProjects = [
@@ -77,22 +98,26 @@ export function ProjectList() {
             !firebaseProjects.some(real => real.title === sample.title)
           )
         ];
+        
+        console.log('Final project list:', combinedProjects);
         setProjects(combinedProjects);
-      } catch (error) {
-        console.error('Error loading projects:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load projects. Using sample projects instead.',
-          variant: 'destructive',
-        });
+      } catch (err) {
+        console.error('Error in loadProjects:', err);
+        setLoadError(err as Error);
+        // Fallback to sample projects
         setProjects(SAMPLE_PROJECTS);
+        toast({
+          title: "Error loading projects",
+          description: "Using sample projects instead. Some features may be limited.",
+          variant: "destructive"
+        });
       } finally {
         setIsLoading(false);
       }
     };
     
     loadProjects();
-  }, [toast]);
+  }, [toast, user, authError]);
   
   const handleCreateProject = async (data: ProjectFormData) => {
     try {
