@@ -11,329 +11,444 @@ import {
   X,
   FileText,
   ChevronDown,
-  ChevronUp
+  ChevronRight,
+  Plus,
+  ChevronUp,
+  MoreVertical,
+  BookOpen
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChapterMetadata, Chapter } from './chapter-types';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ChapterMetadata, Chapter, ChapterCharacter, ChapterSetting, ChapterPlotPoint } from './chapter-types';
+import { AiEnhancedTextarea } from "@/components/ui/ai-enhanced-textarea";
+import { MetadataCard, MetadataItem, AddItemButton } from './metadata-card';
 
 export interface ChapterDetailProps {
   chapter: Chapter;
   onGoBack: () => void;
   onChapterUpdate: (chapter: Chapter) => void;
+  aiScribeEnabled?: boolean;
 }
 
-export function ChapterDetail({ chapter, onGoBack, onChapterUpdate }: ChapterDetailProps) {
-  // State to track which cards are expanded
-  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({
+export function ChapterDetail({ chapter, onGoBack, onChapterUpdate, aiScribeEnabled = true }: ChapterDetailProps) {
+  // State for expanded cards
+  const [expandedCards, setExpandedCards] = useState({
     storyBeats: true,
-    notes: true,
     characters: true,
     settings: true,
-    plotPoints: true
+    plotPoints: true,
+    notes: true
   });
 
-  // Toggle card expansion
+  // Toggle card expanded state
   const toggleCard = (cardName: string) => {
-    setExpandedCards(prev => ({
-      ...prev,
-      [cardName]: !prev[cardName]
-    }));
-  };
-  
-  // Update metadata for the chapter
-  const updateMetadata = (field: keyof ChapterMetadata, value: any) => {
-    const newMetadata = { ...chapter.metadata, [field]: value };
-    onChapterUpdate({
-      ...chapter,
-      metadata: newMetadata
+    setExpandedCards({
+      ...expandedCards,
+      [cardName]: !expandedCards[cardName as keyof typeof expandedCards]
     });
   };
   
-  // Add a new character to the chapter
-  const addCharacter = (character: string) => {
-    if (!character.trim()) return;
+  // Helper functions for updating chapter metadata
+  const updateMetadata = (field: keyof ChapterMetadata, value: any) => {
+    const updatedChapter = {
+      ...chapter,
+      metadata: {
+        ...chapter.metadata,
+        [field]: value
+      }
+    };
+    onChapterUpdate(updatedChapter);
+  };
+
+  // Add a new character
+  const addCharacter = (name: string) => {
+    if (!name.trim()) return;
     
-    const updatedCharacters = [...chapter.metadata.characters, character];
+    const newCharacter: ChapterCharacter = {
+      name: name.trim(),
+      aliases: [],
+      attributes: {
+        personality: [],
+        appearance: [],
+        background: []
+      },
+      relationships: []
+    };
+    
+    const updatedCharacters = [...(chapter.metadata.characters || []), newCharacter];
     updateMetadata('characters', updatedCharacters);
   };
-  
-  // Add a new setting to the chapter
-  const addSetting = (setting: string) => {
-    if (!setting.trim()) return;
+
+  // Add a new setting
+  const addSetting = (name: string) => {
+    if (!name.trim()) return;
     
-    const updatedSettings = [...chapter.metadata.settings, setting];
+    const newSetting: ChapterSetting = {
+      name: name.trim(),
+      description: '',
+      attributes: {
+        type: '',
+        features: [],
+        significance: [],
+        associatedCharacters: []
+      },
+      characterConnections: []
+    };
+    
+    const updatedSettings = [...(chapter.metadata.settings || []), newSetting];
     updateMetadata('settings', updatedSettings);
   };
-  
-  // Add a new plot point to the chapter
-  const addPlotPoint = (plotPoint: string) => {
-    if (!plotPoint.trim()) return;
+
+  // Add a new plot point
+  const addPlotPoint = (title: string) => {
+    if (!title.trim()) return;
     
-    const updatedPlotPoints = [...chapter.metadata.plotPoints, plotPoint];
+    const newPlotPoint: ChapterPlotPoint = {
+      id: `plot-${Date.now()}`,
+      title: title.trim(),
+      description: '',
+      sequence: (chapter.metadata.plotPoints || []).length
+    };
+    
+    const updatedPlotPoints = [...(chapter.metadata.plotPoints || []), newPlotPoint];
     updateMetadata('plotPoints', updatedPlotPoints);
   };
-  
-  // Remove an item from an array in metadata
+
+  // Move a plot point up in sequence
+  const movePlotPointUp = (id: string) => {
+    const plotPoints = [...(chapter.metadata.plotPoints || [])];
+    const index = plotPoints.findIndex(pp => pp.id === id);
+    
+    if (index <= 0) return;
+    
+    // Swap with previous item
+    const temp = plotPoints[index - 1];
+    plotPoints[index - 1] = { ...plotPoints[index], sequence: index - 1 };
+    plotPoints[index] = { ...temp, sequence: index };
+    
+    updateMetadata('plotPoints', plotPoints);
+  };
+
+  // Move a plot point down in sequence
+  const movePlotPointDown = (id: string) => {
+    const plotPoints = [...(chapter.metadata.plotPoints || [])];
+    const index = plotPoints.findIndex(pp => pp.id === id);
+    
+    if (index < 0 || index >= plotPoints.length - 1) return;
+    
+    // Swap with next item
+    const temp = plotPoints[index + 1];
+    plotPoints[index + 1] = { ...plotPoints[index], sequence: index + 1 };
+    plotPoints[index] = { ...temp, sequence: index };
+    
+    updateMetadata('plotPoints', plotPoints);
+  };
+
+  // Update a plot point field
+  const updatePlotPoint = (id: string, field: keyof ChapterPlotPoint, value: string) => {
+    const plotPoints = [...(chapter.metadata.plotPoints || [])];
+    const index = plotPoints.findIndex(pp => pp.id === id);
+    
+    if (index < 0) return;
+    
+    plotPoints[index] = {
+      ...plotPoints[index],
+      [field]: value
+    };
+    
+    updateMetadata('plotPoints', plotPoints);
+  };
+
+  // Delete a plot point
+  const deletePlotPoint = (id: string) => {
+    const plotPoints = [...(chapter.metadata.plotPoints || [])];
+    const index = plotPoints.findIndex(pp => pp.id === id);
+    
+    if (index < 0) return;
+    
+    plotPoints.splice(index, 1);
+    
+    // Update sequence numbers
+    const updatedPlotPoints = plotPoints.map((pp, idx) => ({
+      ...pp,
+      sequence: idx
+    }));
+    
+    updateMetadata('plotPoints', updatedPlotPoints);
+  };
+
+  // Remove an item from a metadata array
   const removeMetadataItem = (field: 'characters' | 'settings' | 'plotPoints', index: number) => {
-    const updatedArray = [...chapter.metadata[field]];
+    const currentArray = chapter.metadata[field] || [];
+    const updatedArray = [...currentArray];
     updatedArray.splice(index, 1);
     updateMetadata(field, updatedArray);
   };
   
   return (
-    <div className="p-4 space-y-6 overflow-auto pb-20">
-      {/* Story Beats Card */}
-      <Card className="transition-all duration-200 ease-in-out">
-        <CardHeader 
-          className="pb-3 cursor-pointer flex flex-row items-center justify-between"
-          onClick={() => toggleCard('storyBeats')}
-        >
-          <CardTitle className="text-md flex items-center">
-            <LayoutDashboard className="h-5 w-5 mr-2" />
-            Story Beats
-          </CardTitle>
-          <Button variant="ghost" size="sm" className="p-0 h-8 w-8">
-            {expandedCards.storyBeats ? 
-              <ChevronDown className="h-5 w-5" /> : 
-              <ChevronUp className="h-5 w-5" />
+    <div className="p-4 space-y-4">
+      {/* Plot Points Card - Using the reusable components */}
+      <MetadataCard
+        title="Plot Points"
+        icon={<BookOpen className="h-5 w-5 mr-2" />}
+        isExpanded={expandedCards.plotPoints}
+        onToggle={() => toggleCard('plotPoints')}
+      >
+        <div className="space-y-3">
+          {(chapter.metadata.plotPoints || [])
+            .sort((a, b) => a.sequence - b.sequence)
+            .map((plotPoint) => (
+              <MetadataItem
+                key={plotPoint.id}
+                title={
+                  <Input
+                    value={plotPoint.title}
+                    onChange={(e) => updatePlotPoint(plotPoint.id, 'title', e.target.value)}
+                    className="border-0 bg-transparent px-0 text-base font-medium focus-visible:ring-0 focus-visible:ring-offset-0"
+                    placeholder="Plot point title"
+                  />
+                }
+                onRemove={() => {
+                  // Remove from list but don't delete
+                  const updatedPlotPoints = [...chapter.metadata.plotPoints].filter(
+                    pp => pp.id !== plotPoint.id
+                  );
+                  updateMetadata('plotPoints', updatedPlotPoints);
+                }}
+              >
+                <AiEnhancedTextarea
+                  value={plotPoint.description}
+                  onChange={(e) => updatePlotPoint(plotPoint.id, 'description', e.target.value)}
+                  placeholder="Describe this plot point..."
+                  className="min-h-[80px] border-0 bg-transparent focus-visible:ring-0 resize-none"
+                  aiScribeEnabled={aiScribeEnabled}
+                />
+              </MetadataItem>
+            ))}
+        </div>
+        
+        <AddItemButton
+          label="Add Plot Point"
+          onClick={() => {
+            const title = prompt("Enter plot point title:");
+            if (title && title.trim()) {
+              addPlotPoint(title);
             }
-          </Button>
-        </CardHeader>
-        {expandedCards.storyBeats && (
-          <CardContent>
-            <Textarea 
-              value={chapter.metadata.storyBeats} 
-              onChange={(e) => updateMetadata('storyBeats', e.target.value)}
-              placeholder="Enter the key story beats for this chapter..."
-              className="min-h-24"
-            />
-          </CardContent>
-        )}
-      </Card>
+          }}
+        />
+      </MetadataCard>
+
+      {/* Story Beats Card */}
+      <MetadataCard
+        title="Story Beats"
+        icon={<LayoutDashboard className="h-5 w-5 mr-2" />}
+        isExpanded={expandedCards.storyBeats}
+        onToggle={() => toggleCard('storyBeats')}
+      >
+        <AiEnhancedTextarea 
+          value={chapter.metadata.storyBeats} 
+          onChange={(e) => updateMetadata('storyBeats', e.target.value)}
+          placeholder="Enter the key story beats for this chapter..."
+          className="min-h-[200px] w-full"
+          aiScribeEnabled={aiScribeEnabled}
+        />
+      </MetadataCard>
 
       {/* Notes Card */}
-      <Card className="transition-all duration-200 ease-in-out">
-        <CardHeader 
-          className="pb-3 cursor-pointer flex flex-row items-center justify-between"
-          onClick={() => toggleCard('notes')}
-        >
-          <CardTitle className="text-md flex items-center">
-            <FileText className="h-5 w-5 mr-2" />
-            Notes
-          </CardTitle>
-          <Button variant="ghost" size="sm" className="p-0 h-8 w-8">
-            {expandedCards.notes ? 
-              <ChevronDown className="h-5 w-5" /> : 
-              <ChevronUp className="h-5 w-5" />
-            }
-          </Button>
-        </CardHeader>
-        {expandedCards.notes && (
-          <CardContent>
-            <Textarea 
-              value={chapter.metadata.notes} 
-              onChange={(e) => updateMetadata('notes', e.target.value)}
-              placeholder="Additional notes for this chapter..."
-              className="min-h-24"
-            />
-          </CardContent>
-        )}
-      </Card>
+      <MetadataCard
+        title="Notes"
+        icon={<FileText className="h-5 w-5 mr-2" />}
+        isExpanded={expandedCards.notes}
+        onToggle={() => toggleCard('notes')}
+      >
+        <AiEnhancedTextarea 
+          value={chapter.metadata.notes} 
+          onChange={(e) => updateMetadata('notes', e.target.value)}
+          placeholder="Additional notes for this chapter..."
+          className="min-h-24"
+          aiScribeEnabled={aiScribeEnabled}
+        />
+      </MetadataCard>
       
       {/* Characters Card */}
-      <Card className="transition-all duration-200 ease-in-out">
-        <CardHeader 
-          className="pb-3 cursor-pointer flex flex-row items-center justify-between"
-          onClick={() => toggleCard('characters')}
-        >
-          <CardTitle className="text-md flex items-center">
-            <Users className="h-5 w-5 mr-2" />
-            Characters
-          </CardTitle>
-          <Button variant="ghost" size="sm" className="p-0 h-8 w-8">
-            {expandedCards.characters ? 
-              <ChevronDown className="h-5 w-5" /> : 
-              <ChevronUp className="h-5 w-5" />
-            }
-          </Button>
-        </CardHeader>
-        {expandedCards.characters && (
-          <CardContent>
-            <div className="flex items-center gap-2 mb-3">
-              <Input 
-                placeholder="Add a character..." 
-                className="flex-1"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    addCharacter((e.target as HTMLInputElement).value);
-                    (e.target as HTMLInputElement).value = '';
-                  }
-                }}
-              />
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={(e) => {
-                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                  addCharacter(input.value);
-                  input.value = '';
-                }}
-              >
-                Add
-              </Button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2 mt-2 sm:grid-cols-3">
-              {chapter.metadata.characters.map((character: string, index: number) => (
-                <div 
-                  key={`character-${index}`}
-                  className="flex items-start justify-between p-2 border rounded-md bg-card shadow-sm"
-                >
-                  <span className="text-sm">{character}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 ml-1"
-                    onClick={() => removeMetadataItem('characters', index)}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
+      <MetadataCard
+        title="Characters"
+        icon={<Users className="h-5 w-5 mr-2" />}
+        isExpanded={expandedCards.characters}
+        onToggle={() => toggleCard('characters')}
+      >
+        <div className="grid grid-cols-1 gap-4">
+          {chapter.metadata.characters.map((character, index) => (
+            <Card key={`character-${index}`} className="p-4">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h4 className="font-semibold">{character.name}</h4>
+                  {character.aliases.length > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Also known as: {character.aliases.join(', ')}
+                    </p>
+                  )}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        )}
-      </Card>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    const updatedCharacters = [...chapter.metadata.characters];
+                    updatedCharacters.splice(index, 1);
+                    updateMetadata('characters', updatedCharacters);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <h5 className="text-sm font-medium mb-2">Personality</h5>
+                  <div className="flex flex-wrap gap-2">
+                    {character.attributes.personality?.map((trait, i) => (
+                      <Badge key={i} variant="secondary">{trait}</Badge>
+                    )) || <span className="text-sm text-muted-foreground">No personality traits added</span>}
+                  </div>
+                </div>
+                
+                <div>
+                  <h5 className="text-sm font-medium mb-2">Appearance</h5>
+                  <div className="flex flex-wrap gap-2">
+                    {character.attributes.appearance?.map((trait, i) => (
+                      <Badge key={i} variant="secondary">{trait}</Badge>
+                    )) || <span className="text-sm text-muted-foreground">No appearance details added</span>}
+                  </div>
+                </div>
+                
+                <div>
+                  <h5 className="text-sm font-medium mb-2">Background</h5>
+                  <div className="flex flex-wrap gap-2">
+                    {character.attributes.background?.map((detail, i) => (
+                      <Badge key={i} variant="secondary">{detail}</Badge>
+                    )) || <span className="text-sm text-muted-foreground">No background details added</span>}
+                  </div>
+                </div>
+                
+                {character.relationships && character.relationships.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium mb-2">Relationships</h5>
+                    <div className="space-y-2">
+                      {character.relationships.map((rel, i) => (
+                        <div key={i} className="text-sm">
+                          <span className="font-medium">{rel.targetName}</span>
+                          <span className="text-muted-foreground"> - {rel.type}</span>
+                          <p className="text-sm text-muted-foreground">{rel.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+        
+        <AddItemButton
+          label="Add Character"
+          onClick={() => {
+            // Open a dialog or prompt for character name
+            const name = prompt("Enter character name:");
+            if (name && name.trim()) {
+              addCharacter(name);
+            }
+          }}
+        />
+      </MetadataCard>
       
       {/* Settings Card */}
-      <Card className="transition-all duration-200 ease-in-out">
-        <CardHeader 
-          className="pb-3 cursor-pointer flex flex-row items-center justify-between"
-          onClick={() => toggleCard('settings')}
-        >
-          <CardTitle className="text-md flex items-center">
-            <Map className="h-5 w-5 mr-2" />
-            Settings & Locations
-          </CardTitle>
-          <Button variant="ghost" size="sm" className="p-0 h-8 w-8">
-            {expandedCards.settings ? 
-              <ChevronDown className="h-5 w-5" /> : 
-              <ChevronUp className="h-5 w-5" />
-            }
-          </Button>
-        </CardHeader>
-        {expandedCards.settings && (
-          <CardContent>
-            <div className="flex items-center gap-2 mb-3">
-              <Input 
-                placeholder="Add a setting or location..." 
-                className="flex-1"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    addSetting((e.target as HTMLInputElement).value);
-                    (e.target as HTMLInputElement).value = '';
-                  }
-                }}
-              />
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={(e) => {
-                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                  addSetting(input.value);
-                  input.value = '';
-                }}
-              >
-                Add
-              </Button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2 mt-2 sm:grid-cols-3">
-              {chapter.metadata.settings.map((setting: string, index: number) => (
-                <div 
-                  key={`setting-${index}`}
-                  className="flex items-start justify-between p-2 border rounded-md bg-card shadow-sm"
-                >
-                  <span className="text-sm">{setting}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 ml-1"
-                    onClick={() => removeMetadataItem('settings', index)}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
+      <MetadataCard
+        title="Settings & Lore"
+        icon={<Map className="h-5 w-5 mr-2" />}
+        isExpanded={expandedCards.settings}
+        onToggle={() => toggleCard('settings')}
+      >
+        <div className="grid grid-cols-1 gap-4">
+          {chapter.metadata.settings.map((setting, index) => (
+            <Card key={`setting-${index}`} className="p-4">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h4 className="font-semibold">{setting.name}</h4>
+                  {setting.description && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {setting.description}
+                    </p>
+                  )}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        )}
-      </Card>
-      
-      {/* Plot Points Card */}
-      <Card className="transition-all duration-200 ease-in-out">
-        <CardHeader 
-          className="pb-3 cursor-pointer flex flex-row items-center justify-between"
-          onClick={() => toggleCard('plotPoints')}
-        >
-          <CardTitle className="text-md flex items-center">
-            Plot Points
-          </CardTitle>
-          <Button variant="ghost" size="sm" className="p-0 h-8 w-8">
-            {expandedCards.plotPoints ? 
-              <ChevronDown className="h-5 w-5" /> : 
-              <ChevronUp className="h-5 w-5" />
-            }
-          </Button>
-        </CardHeader>
-        {expandedCards.plotPoints && (
-          <CardContent>
-            <div className="flex items-center gap-2 mb-3">
-              <Input 
-                placeholder="Add a plot point..." 
-                className="flex-1"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    addPlotPoint((e.target as HTMLInputElement).value);
-                    (e.target as HTMLInputElement).value = '';
-                  }
-                }}
-              />
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={(e) => {
-                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                  addPlotPoint(input.value);
-                  input.value = '';
-                }}
-              >
-                Add
-              </Button>
-            </div>
-            
-            <div className="space-y-2 mt-2">
-              {chapter.metadata.plotPoints.map((plotPoint: string, index: number) => (
-                <div 
-                  key={`plot-${index}`}
-                  className="flex items-start gap-2 p-2 border rounded-md"
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    const updatedSettings = [...chapter.metadata.settings];
+                    updatedSettings.splice(index, 1);
+                    updateMetadata('settings', updatedSettings);
+                  }}
                 >
-                  <div className="flex-1 text-sm">{plotPoint}</div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => removeMetadataItem('plotPoints', index)}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <h5 className="text-sm font-medium mb-2">Type</h5>
+                  <Badge variant="outline">{setting.attributes.type || 'Unspecified'}</Badge>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        )}
-      </Card>
+                
+                <div>
+                  <h5 className="text-sm font-medium mb-2">Features</h5>
+                  <div className="flex flex-wrap gap-2">
+                    {setting.attributes.features?.map((feature, i) => (
+                      <Badge key={i} variant="secondary">{feature}</Badge>
+                    )) || <span className="text-sm text-muted-foreground">No features added</span>}
+                  </div>
+                </div>
+                
+                <div>
+                  <h5 className="text-sm font-medium mb-2">Significance</h5>
+                  <div className="flex flex-wrap gap-2">
+                    {setting.attributes.significance?.map((item, i) => (
+                      <Badge key={i} variant="secondary">{item}</Badge>
+                    )) || <span className="text-sm text-muted-foreground">No significance details added</span>}
+                  </div>
+                </div>
+                
+                {setting.characterConnections && setting.characterConnections.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium mb-2">Character Connections</h5>
+                    <div className="space-y-2">
+                      {setting.characterConnections.map((conn, i) => (
+                        <div key={i} className="text-sm">
+                          <span className="font-medium">{conn.characterName}</span>
+                          <p className="text-sm text-muted-foreground">{conn.connection}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+        
+        <AddItemButton
+          label="Add Setting or Lore"
+          onClick={() => {
+            // Open a dialog or prompt for setting name
+            const name = prompt("Enter setting or lore element name:");
+            if (name && name.trim()) {
+              addSetting(name);
+            }
+          }}
+        />
+      </MetadataCard>
     </div>
   );
 } 
