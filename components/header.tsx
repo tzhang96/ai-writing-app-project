@@ -90,11 +90,12 @@ export function Header({
           <Separator orientation="vertical" className="h-6" />
           
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <Switch 
                 id="ai-chat" 
                 checked={!chatSidebarCollapsed}
                 onCheckedChange={(checked) => setChatSidebarCollapsed(!checked)}
+                className="scale-75 data-[state=checked]:bg-primary"
               />
               <Label htmlFor="ai-chat" className="flex items-center gap-1 cursor-pointer">
                 <MessageSquare className="h-4 w-4" />
@@ -102,11 +103,12 @@ export function Header({
               </Label>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <Switch 
                 id="ai-scribe" 
                 checked={aiScribeEnabled}
                 onCheckedChange={setAiScribeEnabled}
+                className="scale-75 data-[state=checked]:bg-primary"
               />
               <Label htmlFor="ai-scribe" className="flex items-center gap-1 cursor-pointer">
                 <Wand2 className="h-4 w-4" />
@@ -115,6 +117,19 @@ export function Header({
             </div>
           </div>
           
+          <Separator orientation="vertical" className="h-6" />
+          
+          <Select defaultValue="gemini-2.0-flash">
+            <SelectTrigger className="w-[180px] h-8">
+              <SelectValue placeholder="Select model" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+              <SelectItem value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          {/* Commented out unused buttons for now
           <Button variant="ghost" size="icon">
             <Download className="h-4 w-4" />
           </Button>
@@ -125,17 +140,10 @@ export function Header({
             <Search className="h-4 w-4" />
           </Button>
           
-          <Select defaultValue="gemini-2.0-flash">
-            <SelectTrigger className="w-[180px] h-8">
-              <SelectValue placeholder="Select model" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
-              <SelectItem value="gemini-2.0-pro">Gemini 2.0 Pro</SelectItem>
-              <SelectItem value="claude-3-5-sonnet">Claude 3.5 Sonnet</SelectItem>
-              <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
-            </SelectContent>
-          </Select>
+          <Button variant="ghost" size="icon">
+            <Settings className="h-4 w-4" />
+          </Button>
+          */}
           
           <ModeToggle />
         </div>
