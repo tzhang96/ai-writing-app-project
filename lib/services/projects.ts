@@ -106,62 +106,21 @@ export async function getProject(projectId: string): Promise<Project | null> {
 
 export async function getAllProjects(): Promise<Project[]> {
   try {
-    console.log('getAllProjects: Starting to fetch projects from Firestore');
     const projectsCollection = getProjectsCollection();
     const querySnapshot = await getDocs(projectsCollection);
-    
-    console.log(`getAllProjects: Retrieved ${querySnapshot.docs.length} documents`);
-    
-    const projects: Project[] = [];
-    
-    for (const doc of querySnapshot.docs) {
-      try {
-        const data = doc.data();
-        console.log(`Processing document ${doc.id}:`, data);
-        
-        // Skip documents with missing required fields
-        if (!data.title || !data.description) {
-          console.warn(`Skipping document ${doc.id} due to missing required fields`);
-          continue;
-        }
-        
-        // Handle missing or invalid timestamps
-        let lastEdited: Date;
-        let createdAt: Date | undefined;
-        
-        try {
-          lastEdited = data.lastEdited?.toDate() || new Date();
-        } catch (err) {
-          console.warn(`Invalid lastEdited timestamp for document ${doc.id}, using current date`);
-          lastEdited = new Date();
-        }
-        
-        try {
-          createdAt = data.createdAt?.toDate();
-        } catch (err) {
-          console.warn(`Invalid createdAt timestamp for document ${doc.id}`);
-          createdAt = undefined;
-        }
-        
-        projects.push({
-          id: doc.id,
-          title: data.title,
-          description: data.description,
-          lastEdited,
-          coverImage: data.coverImage,
-          createdAt
-        });
-      } catch (docError) {
-        console.error(`Error processing document ${doc.id}:`, docError);
-        // Continue with other documents
-      }
-    }
-    
-    console.log('getAllProjects: Successfully processed all documents', projects);
-    return projects;
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.title,
+        description: data.description,
+        lastEdited: data.lastEdited.toDate(),
+        coverImage: data.coverImage,
+        createdAt: data.createdAt?.toDate(),
+      };
+    });
   } catch (error) {
     console.error('Error getting projects:', error);
-    // Return empty array instead of throwing
-    return [];
+    throw error;
   }
 } 

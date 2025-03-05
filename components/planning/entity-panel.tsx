@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { AiEnhancedTextarea } from '@/components/ui/ai-enhanced-textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, LucideIcon, X, MoreVertical, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, LucideIcon, X, MoreVertical, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { 
   Dialog,
   DialogContent,
@@ -94,6 +94,7 @@ interface EntityPanelProps {
   onDelete: (id: string) => void;
   onAddField?: (field: EntityField) => void;
   onRemoveField?: (key: string) => void;
+  isLoading?: boolean;
 }
 
 export function EntityPanel({
@@ -105,14 +106,22 @@ export function EntityPanel({
   onUpdate,
   onDelete,
   onAddField,
-  onRemoveField
+  onRemoveField,
+  isLoading = false
 }: EntityPanelProps) {
-  const [selectedId, setSelectedId] = useState<string>(entities[0]?.id || '');
+  const [selectedId, setSelectedId] = useState<string>('');
   const [newFieldName, setNewFieldName] = useState('');
   const [newFieldType, setNewFieldType] = useState<'input' | 'textarea'>('input');
   const [isAddingField, setIsAddingField] = useState(false);
   const [fieldToDelete, setFieldToDelete] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  
+  // Set the first entity as selected by default when entities load
+  useEffect(() => {
+    if (entities.length > 0 && !selectedId) {
+      setSelectedId(entities[0].id);
+    }
+  }, [entities, selectedId]);
   
   // Combine built-in fields with custom fields
   const allFields: EntityField[] = [
@@ -221,15 +230,21 @@ export function EntityPanel({
       <div className="flex flex-col pr-3">
         <ScrollArea className="flex-1 h-[calc(100vh-300px)]">
           <div className="pr-1 pb-3 pl-1 pt-1">
-            {entities.map(entity => (
-              <EntityCard 
-                key={entity.id} 
-                entity={entity}
-                onSelect={() => setSelectedId(entity.id)}
-                isSelected={entity.id === selectedId}
-                icon={Icon}
-              />
-            ))}
+            {isLoading ? (
+              <div className="flex items-center justify-center h-32 text-muted-foreground">
+                Loading...
+              </div>
+            ) : (
+              entities.map(entity => (
+                <EntityCard 
+                  key={entity.id} 
+                  entity={entity}
+                  onSelect={() => setSelectedId(entity.id)}
+                  isSelected={entity.id === selectedId}
+                  icon={Icon}
+                />
+              ))
+            )}
           </div>
         </ScrollArea>
         
@@ -238,6 +253,7 @@ export function EntityPanel({
           variant="outline" 
           onClick={onAdd} 
           className="mt-3 mb-2 w-full gap-1 text-xs"
+          disabled={isLoading}
         >
           <Plus className="h-3.5 w-3.5" />
           Add {title}
