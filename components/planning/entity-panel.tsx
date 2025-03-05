@@ -5,10 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { AiEnhancedTextarea } from '@/components/ui/ai-enhanced-textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2, LucideIcon, X, MoreVertical, AlertTriangle } from 'lucide-react';
-import { AiScribePopup, useAiScribe } from '@/components/ai-scribe-popup';
 import { 
   Dialog,
   DialogContent,
@@ -124,82 +124,23 @@ export function EntityPanel({
   
   const selectedEntity = entities.find(e => e.id === selectedId);
   
-  // Create refs for textareas - one for description and one for each custom textarea field
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const customFieldRefs = useRef<{[key: string]: React.RefObject<HTMLTextAreaElement>}>({});
-  
-  // Initialize refs for custom textarea fields
-  useEffect(() => {
+  // Updated handlers for AI content
+  const handleDescriptionAiGeneratedContent = (newContent: string) => {
     if (selectedEntity) {
-      // Create refs for custom textarea fields
-      defaultFields.forEach(field => {
-        if (field.type === 'textarea') {
-          if (!customFieldRefs.current[field.key]) {
-            customFieldRefs.current[field.key] = React.createRef<HTMLTextAreaElement>();
-          }
-        }
-      });
+      const currentContent = selectedEntity.description || '';
+      const newValue = currentContent + newContent;
+      onUpdate(selectedEntity.id, 'description', newValue);
     }
-  }, [selectedEntity, defaultFields]);
+  };
   
-  // Use AI Scribe hooks - these must be called unconditionally
-  const descriptionAiScribe = useAiScribe(descriptionRef, true);
-  
-  // Create a fixed set of AI Scribe hooks for custom fields
-  // We'll use a maximum of 10 custom textarea fields to avoid dynamic hook creation
-  const customField1Ref = useRef<HTMLTextAreaElement>(null);
-  const customField2Ref = useRef<HTMLTextAreaElement>(null);
-  const customField3Ref = useRef<HTMLTextAreaElement>(null);
-  const customField4Ref = useRef<HTMLTextAreaElement>(null);
-  const customField5Ref = useRef<HTMLTextAreaElement>(null);
-  const customField6Ref = useRef<HTMLTextAreaElement>(null);
-  const customField7Ref = useRef<HTMLTextAreaElement>(null);
-  const customField8Ref = useRef<HTMLTextAreaElement>(null);
-  const customField9Ref = useRef<HTMLTextAreaElement>(null);
-  const customField10Ref = useRef<HTMLTextAreaElement>(null);
-  
-  const customField1AiScribe = useAiScribe(customField1Ref, true);
-  const customField2AiScribe = useAiScribe(customField2Ref, true);
-  const customField3AiScribe = useAiScribe(customField3Ref, true);
-  const customField4AiScribe = useAiScribe(customField4Ref, true);
-  const customField5AiScribe = useAiScribe(customField5Ref, true);
-  const customField6AiScribe = useAiScribe(customField6Ref, true);
-  const customField7AiScribe = useAiScribe(customField7Ref, true);
-  const customField8AiScribe = useAiScribe(customField8Ref, true);
-  const customField9AiScribe = useAiScribe(customField9Ref, true);
-  const customField10AiScribe = useAiScribe(customField10Ref, true);
-  
-  // Map of custom field keys to their refs and AI Scribe hooks
-  const customFieldsMap = useRef<{[key: string]: {
-    ref: React.RefObject<HTMLTextAreaElement>,
-    aiScribe: ReturnType<typeof useAiScribe>
-  }}>({});
-  
-  // Update the map when custom fields change
-  useEffect(() => {
-    const customTextareaFields = defaultFields.filter(field => field.type === 'textarea');
-    
-    // Assign refs and hooks to custom fields (up to 10)
-    const refs = [
-      customField1Ref, customField2Ref, customField3Ref, customField4Ref, customField5Ref,
-      customField6Ref, customField7Ref, customField8Ref, customField9Ref, customField10Ref
-    ];
-    
-    const hooks = [
-      customField1AiScribe, customField2AiScribe, customField3AiScribe, customField4AiScribe, customField5AiScribe,
-      customField6AiScribe, customField7AiScribe, customField8AiScribe, customField9AiScribe, customField10AiScribe
-    ];
-    
-    customTextareaFields.forEach((field, index) => {
-      if (index < 10) {
-        customFieldsMap.current[field.key] = {
-          ref: refs[index],
-          aiScribe: hooks[index]
-        };
-      }
-    });
-  }, [defaultFields]);
-  
+  const handleCustomFieldAiGeneratedContent = (fieldKey: string, newContent: string) => {
+    if (selectedEntity) {
+      const currentContent = selectedEntity[fieldKey] || '';
+      const newValue = currentContent + newContent;
+      onUpdate(selectedEntity.id, fieldKey, newValue);
+    }
+  };
+
   const handleAddField = () => {
     if (!newFieldName.trim() || !onAddField) return;
     
@@ -231,18 +172,6 @@ export function EntityPanel({
 
   const renderField = (entity: Entity, field: EntityField) => {
     const isTextarea = field.type === 'textarea';
-    let ref = null;
-    let aiScribeHook = null;
-    
-    if (isTextarea) {
-      if (field.key === 'description') {
-        ref = descriptionRef;
-        aiScribeHook = descriptionAiScribe;
-      } else if (customFieldsMap.current[field.key]) {
-        ref = customFieldsMap.current[field.key].ref;
-        aiScribeHook = customFieldsMap.current[field.key].aiScribe;
-      }
-    }
     
     return (
       <div key={field.key} className="space-y-1.5 relative">
@@ -261,12 +190,19 @@ export function EntityPanel({
         </div>
         
         {isTextarea ? (
-          <Textarea 
-            ref={ref}
+          <AiEnhancedTextarea
             value={entity[field.key] || ''} 
             onChange={(e) => onUpdate(entity.id, field.key, e.target.value)}
             className="min-h-[100px] text-sm"
             placeholder={field.placeholder}
+            aiScribeEnabled={true}
+            onAiContent={(newContent) => {
+              if (field.key === 'description') {
+                handleDescriptionAiGeneratedContent(newContent);
+              } else {
+                handleCustomFieldAiGeneratedContent(field.key, newContent);
+              }
+            }}
           />
         ) : (
           <Input 
@@ -274,19 +210,6 @@ export function EntityPanel({
             onChange={(e) => onUpdate(entity.id, field.key, e.target.value)}
             className="h-8 text-sm"
             placeholder={field.placeholder}
-          />
-        )}
-        
-        {isTextarea && aiScribeHook && aiScribeHook.showAiPopup && (
-          <AiScribePopup
-            selectedText={aiScribeHook.selectedText}
-            position={aiScribeHook.popupPosition}
-            onClose={aiScribeHook.closePopup}
-            onAction={(action, instructions) => {
-              // Handle AI actions here
-              console.log(`Action ${action} with instructions: ${instructions}`);
-              aiScribeHook.handleAiAction(action, instructions);
-            }}
           />
         )}
       </div>

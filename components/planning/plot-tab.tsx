@@ -4,12 +4,11 @@ import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { AiEnhancedTextarea } from '@/components/ui/ai-enhanced-textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ChevronDown as ChevronDownIcon, MoreVertical, Wand2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { AiScribePopup, useAiScribe } from '@/components/ai-scribe-popup';
 
 interface PlotPoint {
   id: string;
@@ -40,15 +39,12 @@ function PlotPointCard({
   aiScribeEnabled
 }: PlotPointCardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
-  const {
-    showAiPopup,
-    selectedText,
-    popupPosition,
-    handleAiAction,
-    closePopup
-  } = useAiScribe(textareaRef, aiScribeEnabled);
+  const handleAiContent = (newContent: string) => {
+    if (newContent) {
+      onUpdate(plotPoint.id, 'description', plotPoint.description + newContent);
+    }
+  };
 
   return (
     <Card className="mb-3 overflow-hidden relative">
@@ -130,25 +126,16 @@ function PlotPointCard({
       
       <div className={cn("transition-all", isExpanded ? "max-h-[500px]" : "max-h-0 overflow-hidden")}>
         <CardContent className="pt-2 px-3 pb-3">
-          <Textarea
-            ref={textareaRef}
+          <AiEnhancedTextarea
             value={plotPoint.description}
             onChange={(e) => onUpdate(plotPoint.id, 'description', e.target.value)}
             className="min-h-[80px] resize-none border focus-visible:ring-1 text-sm"
             placeholder="Describe what happens in this plot point..."
+            aiScribeEnabled={aiScribeEnabled}
+            onAiContent={handleAiContent}
           />
         </CardContent>
       </div>
-      
-      {/* AI Scribe Popup */}
-      {showAiPopup && (
-        <AiScribePopup
-          selectedText={selectedText}
-          position={popupPosition}
-          onAction={handleAiAction}
-          onClose={closePopup}
-        />
-      )}
     </Card>
   );
 }

@@ -20,7 +20,7 @@ import {
   Redo,
   Search
 } from 'lucide-react';
-import { AiScribePopup, useAiScribe } from '@/components/ai-scribe-popup';
+import { AiEnhancedTextarea } from '@/components/ui/ai-enhanced-textarea';
 
 interface ChapterContent {
   id: string;
@@ -62,15 +62,6 @@ export function TextEditor({ activeChapterId, aiScribeEnabled }: TextEditorProps
   
   const [currentContent, setCurrentContent] = useState('');
   const [wordCount, setWordCount] = useState(0);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
-  const {
-    showAiPopup,
-    selectedText,
-    popupPosition,
-    handleAiAction,
-    closePopup
-  } = useAiScribe(textareaRef, aiScribeEnabled);
   
   useEffect(() => {
     if (activeChapterId) {
@@ -185,12 +176,12 @@ export function TextEditor({ activeChapterId, aiScribeEnabled }: TextEditorProps
       
       <ScrollArea className="flex-1 p-6">
         {activeChapterId ? (
-          <textarea
-            ref={textareaRef}
+          <AiEnhancedTextarea
             value={currentContent}
             onChange={handleContentChange}
             className="w-full h-full min-h-[calc(100vh-250px)] p-4 text-lg leading-relaxed resize-none focus:outline-none bg-transparent"
             placeholder="Start writing here..."
+            aiScribeEnabled={aiScribeEnabled}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -207,16 +198,6 @@ export function TextEditor({ activeChapterId, aiScribeEnabled }: TextEditorProps
           Last saved: {new Date().toLocaleTimeString()}
         </div>
       </div>
-      
-      {/* AI Scribe Popup */}
-      {showAiPopup && (
-        <AiScribePopup
-          selectedText={selectedText}
-          position={popupPosition}
-          onAction={handleAiAction}
-          onClose={closePopup}
-        />
-      )}
     </div>
   );
 }

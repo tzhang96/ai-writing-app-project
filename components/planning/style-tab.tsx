@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { AiEnhancedTextarea } from '@/components/ui/ai-enhanced-textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -21,6 +22,12 @@ function StyleExampleCard({ example, onUpdate, onDelete }: {
   onUpdate: (id: string, field: keyof StyleExample, value: string) => void;
   onDelete: (id: string) => void;
 }) {
+  const handleAiContent = (newContent: string) => {
+    if (newContent) {
+      onUpdate(example.id, 'content', example.content + newContent);
+    }
+  };
+
   return (
     <div className="mb-3 border rounded-md">
       <div className="p-2 pb-1">
@@ -42,11 +49,13 @@ function StyleExampleCard({ example, onUpdate, onDelete }: {
         </div>
       </div>
       <div className="p-2 pt-0">
-        <Textarea
+        <AiEnhancedTextarea
           value={example.content}
           onChange={(e) => onUpdate(example.id, 'content', e.target.value)}
           className="min-h-[80px] max-h-[120px] border-none focus-visible:ring-0 text-sm"
           placeholder="Write your style example here..."
+          aiScribeEnabled={true}
+          onAiContent={handleAiContent}
         />
       </div>
     </div>
@@ -86,6 +95,30 @@ export function StyleTab({ aiScribeEnabled }: { aiScribeEnabled: boolean }) {
     setStyleExamples(styleExamples.filter(example => example.id !== id));
   };
   
+  const handleVoiceAiContent = (newContent: string) => {
+    if (newContent) {
+      setStyleNotes({ ...styleNotes, voice: styleNotes.voice + newContent });
+    }
+  };
+  
+  const handlePovAiContent = (newContent: string) => {
+    if (newContent) {
+      setStyleNotes({ ...styleNotes, pov: styleNotes.pov + newContent });
+    }
+  };
+  
+  const handleTenseAiContent = (newContent: string) => {
+    if (newContent) {
+      setStyleNotes({ ...styleNotes, tense: styleNotes.tense + newContent });
+    }
+  };
+  
+  const handleDialogueAiContent = (newContent: string) => {
+    if (newContent) {
+      setStyleNotes({ ...styleNotes, dialogue: styleNotes.dialogue + newContent });
+    }
+  };
+  
   return (
     <div className="h-full flex flex-col">
       <Card className="flex-1 overflow-hidden">
@@ -95,44 +128,52 @@ export function StyleTab({ aiScribeEnabled }: { aiScribeEnabled: boolean }) {
               {/* Voice & Tone Section */}
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Voice & Tone</Label>
-                <Textarea 
+                <AiEnhancedTextarea 
                   className="min-h-[80px] text-sm resize-none"
                   placeholder="Describe your narrative voice and tone..."
                   value={styleNotes.voice}
                   onChange={(e) => updateStyleNote('voice', e.target.value)}
+                  aiScribeEnabled={aiScribeEnabled}
+                  onAiContent={handleVoiceAiContent}
                 />
               </div>
               
               {/* Point of View Section */}
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Point of View</Label>
-                <Textarea 
+                <AiEnhancedTextarea 
                   className="min-h-[80px] text-sm resize-none"
                   placeholder="Describe your point of view approach..."
                   value={styleNotes.pov}
                   onChange={(e) => updateStyleNote('pov', e.target.value)}
+                  aiScribeEnabled={aiScribeEnabled}
+                  onAiContent={handlePovAiContent}
                 />
               </div>
               
               {/* Tense Section */}
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Tense</Label>
-                <Textarea 
+                <AiEnhancedTextarea 
                   className="min-h-[80px] text-sm resize-none"
                   placeholder="Describe your tense preferences..."
                   value={styleNotes.tense}
                   onChange={(e) => updateStyleNote('tense', e.target.value)}
+                  aiScribeEnabled={aiScribeEnabled}
+                  onAiContent={handleTenseAiContent}
                 />
               </div>
               
               {/* Dialogue Section */}
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Dialogue</Label>
-                <Textarea 
+                <AiEnhancedTextarea 
                   className="min-h-[80px] text-sm resize-none"
                   placeholder="Describe your dialogue style and formatting..."
                   value={styleNotes.dialogue}
                   onChange={(e) => updateStyleNote('dialogue', e.target.value)}
+                  aiScribeEnabled={aiScribeEnabled}
+                  onAiContent={handleDialogueAiContent}
                 />
               </div>
               
