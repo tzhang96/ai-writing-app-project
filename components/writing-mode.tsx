@@ -41,6 +41,7 @@ export function WritingMode({ chatSidebarCollapsed, projectId, aiScribeEnabled }
                 activeChapterId={activeChapterId} 
                 setActiveChapterId={setActiveChapterId} 
                 onViewModeChange={(mode) => setIsChapterDetailView(mode === 'detail')}
+                aiScribeEnabled={aiScribeEnabled}
               />
             </ScrollArea>
           </div>

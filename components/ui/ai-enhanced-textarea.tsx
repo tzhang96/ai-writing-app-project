@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef } from "react";
+import { createPortal } from "react-dom";
 import { Textarea, TextareaProps } from "@/components/ui/textarea";
 import { 
   AiScribePopup, 
@@ -8,6 +9,7 @@ import {
   useAiScribe, 
   useAiWrite 
 } from "@/components/ai-scribe-popup";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export interface AiEnhancedTextareaProps extends TextareaProps {
   aiScribeEnabled: boolean;
@@ -19,6 +21,14 @@ export const AiEnhancedTextarea = React.forwardRef<HTMLTextAreaElement, AiEnhanc
     // Create local ref if one is not provided
     const innerRef = useRef<HTMLTextAreaElement>(null);
     const textareaRef = (forwardedRef || innerRef) as React.RefObject<HTMLTextAreaElement>;
+    
+    // State to track if we're in a browser environment (for SSR compatibility)
+    const [isBrowser, setIsBrowser] = React.useState(false);
+    
+    // Set isBrowser to true on component mount
+    React.useEffect(() => {
+      setIsBrowser(true);
+    }, []);
     
     // Initialize AI Scribe functionality
     const {
@@ -76,6 +86,46 @@ export const AiEnhancedTextarea = React.forwardRef<HTMLTextAreaElement, AiEnhanc
       }
     };
     
+    // Render popups in a portal
+    const renderPopups = () => {
+      if (!isBrowser) return null;
+      
+      return createPortal(
+        <TooltipProvider>
+          {/* AI Scribe Popup */}
+          {showAiPopup && (
+            <AiScribePopup
+              selectedText={selectedText}
+              position={popupPosition}
+              onAction={(action, instructions) => {
+                handleAiAction(action, instructions);
+                const demoContent = `[AI ${action} with instructions: ${instructions || 'none'}]`;
+                handleAiGeneratedContent(demoContent);
+              }}
+              onClose={closePopup}
+              selectionInfo={selectionInfo}
+            />
+          )}
+          
+          {/* AI Write Popup */}
+          {showWritePopup && (
+            <AiWritePopup
+              position={cursorPosition}
+              onWrite={(instructions) => {
+                handleWrite(instructions);
+                const demoContent = instructions 
+                  ? `[AI writing with instructions: ${instructions}]` 
+                  : "[AI generated writing]";
+                handleAiGeneratedContent(demoContent);
+              }}
+              onClose={closeWritePopup}
+            />
+          )}
+        </TooltipProvider>,
+        document.body
+      );
+    };
+    
     return (
       <>
         <Textarea
@@ -84,35 +134,7 @@ export const AiEnhancedTextarea = React.forwardRef<HTMLTextAreaElement, AiEnhanc
           {...props}
         />
         
-        {/* AI Scribe Popup */}
-        {showAiPopup && (
-          <AiScribePopup
-            selectedText={selectedText}
-            position={popupPosition}
-            onAction={(action, instructions) => {
-              handleAiAction(action, instructions);
-              const demoContent = `[AI ${action} with instructions: ${instructions || 'none'}]`;
-              handleAiGeneratedContent(demoContent);
-            }}
-            onClose={closePopup}
-            selectionInfo={selectionInfo}
-          />
-        )}
-        
-        {/* AI Write Popup */}
-        {showWritePopup && (
-          <AiWritePopup
-            position={cursorPosition}
-            onWrite={(instructions) => {
-              handleWrite(instructions);
-              const demoContent = instructions 
-                ? `[AI writing with instructions: ${instructions}]` 
-                : "[AI generated writing]";
-              handleAiGeneratedContent(demoContent);
-            }}
-            onClose={closeWritePopup}
-          />
-        )}
+        {renderPopups()}
       </>
     );
   }

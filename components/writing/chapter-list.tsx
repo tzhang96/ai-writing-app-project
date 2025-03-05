@@ -83,7 +83,7 @@ function SortableChapterItem({
       <ContextMenu>
         <ContextMenuTrigger>
           <div 
-            className={`flex items-center gap-2 px-2 py-1.5 rounded-md ${
+            className={`flex items-center gap-2 px-2 py-1.5 rounded-md group ${
               activeChapterId === chapter.id ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
             }`}
           >
@@ -114,7 +114,18 @@ function SortableChapterItem({
                   </Button>
                 </div>
               ) : (
-                <span className="text-sm font-medium">{chapter.title}</span>
+                <div className="relative overflow-hidden">
+                  <span className="text-sm font-medium whitespace-nowrap block overflow-hidden">
+                    {chapter.title}
+                  </span>
+                  <div 
+                    className={`absolute inset-y-0 right-0 w-8 pointer-events-none ${
+                      activeChapterId === chapter.id 
+                        ? 'bg-gradient-to-l from-accent to-transparent' 
+                        : 'bg-gradient-to-l from-background to-transparent group-hover:from-accent/50'
+                    }`}
+                  ></div>
+                </div>
               )}
             </div>
           </div>
