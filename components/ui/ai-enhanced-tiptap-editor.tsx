@@ -17,6 +17,7 @@ import {
 } from "@/components/ai-scribe-popup";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { generateAIContent } from "@/lib/services/ai";
 
 export interface AiEnhancedTipTapEditorProps {
   value: string;
@@ -289,7 +290,6 @@ export function AiEnhancedTipTapEditor({
     showAiPopup,
     selectedText,
     popupPosition,
-    handleAiAction,
     closePopup,
     selectionInfo
   } = useAiScribe(simulatedTextareaRef as React.RefObject<HTMLTextAreaElement>, aiScribeEnabled);
@@ -298,7 +298,6 @@ export function AiEnhancedTipTapEditor({
   const {
     showWritePopup,
     cursorPosition,
-    handleWrite,
     closeWritePopup,
     setShowWritePopup,
     setCursorPosition
@@ -328,6 +327,8 @@ export function AiEnhancedTipTapEditor({
     }
   }, [editor, value]);
   
+  const [isGenerating, setIsGenerating] = useState(false);
+  
   // Handle AI generated content
   const handleAiGeneratedContent = (newContent: string) => {
     if (onAiContent) {
@@ -353,6 +354,18 @@ export function AiEnhancedTipTapEditor({
         editor.commands.focus();
       }, 0);
     }
+  };
+  
+  // The AI action handler without modifying the editor itself
+  const handleAiAction = async (action: 'expand' | 'summarize' | 'rephrase' | 'revise', instructions?: string) => {
+    if (!editor) return;
+    console.log(`AI ${action} for: ${selectedText}${instructions ? ` with instructions: ${instructions}` : ''}`);
+  };
+  
+  // The AI write handler without modifying the editor itself
+  const handleWrite = async (instructions?: string) => {
+    if (!editor) return;
+    console.log(`AI writing with instructions: ${instructions || 'none'}`);
   };
   
   // Expose editor methods to parent component
@@ -460,19 +473,50 @@ export function AiEnhancedTipTapEditor({
             onAction={(action, instructions) => {
               handleAiAction(action, instructions);
               
-              // Mock functionality for testing - replace selected text with "test"
+              // Try real AI generation first, fallback to mock on error
               if (editor) {
                 const { from, to } = editor.state.selection;
+                const selectedContent = editor.state.doc.textBetween(from, to, ' ');
                 
-                // Replace the selected text with "test"
-                editor.commands.deleteRange({ from, to });
-                editor.commands.insertContentAt(from, "test");
+                setIsGenerating(true);
                 
-                // Set cursor after the inserted text
-                const newPos = from + "test".length;
-                editor.commands.setTextSelection(newPos);
-                
-                console.log('TipTap: Replaced selected text with "test"');
+                generateAIContent({
+                  type: action as any,
+                  projectId: 'placeholder-project-id',
+                  chapterId: 'placeholder-chapter-id',
+                  currentContent: selectedContent,
+                })
+                .then(result => {
+                  // Extract the generated content
+                  const transformedText = result.data.generatedContent;
+                  
+                  // Apply the transformed text to the editor
+                  editor.commands.deleteRange({ from, to });
+                  editor.commands.insertContentAt(from, transformedText);
+                  
+                  // Set cursor after the inserted text
+                  const newPos = from + transformedText.length;
+                  editor.commands.setTextSelection(newPos);
+                  
+                  console.log('TipTap: Replaced selected text with AI content');
+                })
+                .catch(error => {
+                  console.error('Error transforming text:', error);
+                  
+                  // Fall back to mock functionality in case of error
+                  const mockText = "This is mock AI output for " + action;
+                  editor.commands.deleteRange({ from, to });
+                  editor.commands.insertContentAt(from, mockText);
+                  
+                  // Set cursor after the inserted text
+                  const newPos = from + mockText.length;
+                  editor.commands.setTextSelection(newPos);
+                  
+                  console.log('TipTap: Replaced selected text with mock content');
+                })
+                .finally(() => {
+                  setIsGenerating(false);
+                });
               }
             }}
             onClose={closePopup}
@@ -487,12 +531,51 @@ export function AiEnhancedTipTapEditor({
             position={cursorPosition}
             onWrite={(instructions) => {
               handleWrite(instructions);
-              const demoContent = "test";
-              handleAiGeneratedContent(demoContent);
+              
+              if (editor) {
+                const insertPos = editor.state.selection.from;
+                
+                setIsGenerating(true);
+                
+                generateAIContent({
+                  type: 'text',
+                  projectId: 'placeholder-project-id',
+                  chapterId: 'placeholder-chapter-id',
+                  currentContent: editor.getText(),
+                })
+                .then(result => {
+                  // Extract the generated content
+                  const generatedText = result.data.generatedContent;
+                  handleAiGeneratedContent(generatedText);
+                })
+                .catch(error => {
+                  console.error('Error generating text:', error);
+                  // Fall back to mock content
+                  const mockContent = instructions 
+                    ? `Mock AI content generated with instructions: ${instructions}`
+                    : 'Mock AI generated content';
+                  handleAiGeneratedContent(mockContent);
+                })
+                .finally(() => {
+                  setIsGenerating(false);
+                });
+              }
             }}
             onClose={closeWritePopup}
             className="write-popup"
           />
+        )}
+        
+        {isGenerating && (
+          <div className="fixed top-4 right-4 bg-black/75 text-white px-3 py-2 rounded-md flex items-center gap-2 z-50">
+            <span className="animate-spin">
+              <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </span>
+            <span>Generating...</span>
+          </div>
         )}
       </TooltipProvider>,
       document.body
