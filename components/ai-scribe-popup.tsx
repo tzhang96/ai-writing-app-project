@@ -69,9 +69,6 @@ function usePopupPosition(popupRef: React.RefObject<HTMLDivElement>, position: {
       let left = position.left;
       let positionedAbove = false;
       
-      // Ensure minimum distance from left edge
-      left = Math.max(20, left);
-      
       // Adjust horizontal position if needed
       if (left + rect.width > viewportWidth - 20) {
         left = Math.max(20, viewportWidth - rect.width - 20);
@@ -84,17 +81,12 @@ function usePopupPosition(popupRef: React.RefObject<HTMLDivElement>, position: {
         positionedAbove = true;
       }
       
-      // Ensure minimum distance from top edge
-      top = Math.max(10, top);
-      
       setIsPositionedAbove(positionedAbove);
       
-      // Apply position with fixed positioning to ensure it's relative to viewport
+      // Apply position
       if (popupRef.current) {
-        popupRef.current.style.position = 'fixed';
         popupRef.current.style.top = `${top}px`;
         popupRef.current.style.left = `${left}px`;
-        popupRef.current.style.zIndex = '9999'; // Ensure it's above other elements
       }
     }
   }, [position, popupRef]);
@@ -131,23 +123,14 @@ export function AiScribePopup({
   onClose,
   selectionInfo 
 }: AiScribePopupProps) {
-  const [mode, setMode] = useState<'compact' | 'expanded'>('compact');
   const [instructions, setInstructions] = useState('');
   const popupRef = useRef<HTMLDivElement>(null);
   
-  // Use shared hooks for positioning and click outside handling
+  // Use shared positioning hook
   const { isPositionedAbove } = usePopupPosition(popupRef, position);
-  useClickOutside(popupRef, onClose, selectionInfo);
   
-  // Set the current popup type when this component mounts
-  useEffect(() => {
-    popupState.setPopupType('scribe');
-    return () => {
-      if (popupState.current === 'scribe') {
-        popupState.setPopupType('none');
-      }
-    };
-  }, []);
+  // Use shared click outside hook
+  useClickOutside(popupRef, onClose, selectionInfo);
   
   const handleAction = (action: 'expand' | 'summarize' | 'rephrase' | 'revise') => {
     onAction(action, instructions);
@@ -156,13 +139,13 @@ export function AiScribePopup({
   return (
     <TooltipProvider>
       <div 
-        ref={popupRef} 
-        className="fixed shadow-lg rounded-lg bg-background border border-border p-2 w-[280px] z-[9999]"
+        ref={popupRef}
+        className="fixed z-[100] shadow-lg rounded-lg bg-background border scribe-popup"
         style={{ 
-          position: 'fixed',
-          top: 0, 
-          left: 0,
-          transform: `translate3d(0, 0, 0)` 
+          top: `${position.top}px`, 
+          left: `${position.left}px`,
+          width: '250px',
+          transform: isPositionedAbove ? 'translate(0, -15px)' : 'translate(0, 5px)'
         }}
       >
         <div className="p-3">
@@ -258,19 +241,11 @@ export function AiWritePopup({ position, onWrite, onClose }: AiWritePopupProps) 
   const [instructions, setInstructions] = useState('');
   const popupRef = useRef<HTMLDivElement>(null);
   
-  // Use shared hooks for positioning and click outside handling
+  // Use shared positioning hook
   const { isPositionedAbove } = usePopupPosition(popupRef, position);
-  useClickOutside(popupRef, onClose);
   
-  // Set the current popup type when this component mounts
-  useEffect(() => {
-    popupState.setPopupType('write');
-    return () => {
-      if (popupState.current === 'write') {
-        popupState.setPopupType('none');
-      }
-    };
-  }, []);
+  // Use shared click outside hook
+  useClickOutside(popupRef, onClose);
   
   const handleWrite = () => {
     onWrite(instructions);
@@ -279,13 +254,13 @@ export function AiWritePopup({ position, onWrite, onClose }: AiWritePopupProps) 
   return (
     <TooltipProvider>
       <div 
-        ref={popupRef} 
-        className="fixed shadow-lg rounded-lg bg-background border border-border p-2 w-[280px] z-[9999]"
+        ref={popupRef}
+        className="fixed z-[100] shadow-lg rounded-lg bg-background border write-popup"
         style={{ 
-          position: 'fixed',
-          top: 0, 
-          left: 0,
-          transform: `translate3d(0, 0, 0)` 
+          top: `${position.top}px`, 
+          left: `${position.left}px`,
+          width: '250px',
+          transform: isPositionedAbove ? 'translate(0, -15px)' : 'translate(0, 20px)'
         }}
       >
         <div className="p-3">
