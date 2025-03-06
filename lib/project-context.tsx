@@ -35,7 +35,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       return sampleProject;
     }
 
-    // Then try Firebase
+    // Then try to get from Firebase
     try {
       const project = await getProject(id);
       return project;
