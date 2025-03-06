@@ -65,7 +65,7 @@ function usePopupPosition(popupRef: React.RefObject<HTMLDivElement>, position: {
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
       
-      let top = position.top;
+      let top = position.top + 40; // Add 40px vertical offset to move popup lower
       let left = position.left;
       let positionedAbove = false;
       

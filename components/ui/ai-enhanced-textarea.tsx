@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Textarea, TextareaProps } from "@/components/ui/textarea";
 import { 
@@ -10,20 +10,26 @@ import {
   useAiWrite 
 } from "@/components/ai-scribe-popup";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { generateAIContent } from '@/lib/services/ai';
+import { Loader2 } from 'lucide-react';
 
 export interface AiEnhancedTextareaProps extends TextareaProps {
   aiScribeEnabled: boolean;
-  onAiContent?: (newContent: string) => void;
+  onAiContent?: (content: string, title?: string) => void;
+  chapterId?: string;
+  projectId?: string;
+  contentType?: 'note' | 'beat' | 'text';
 }
 
 export const AiEnhancedTextarea = React.forwardRef<HTMLTextAreaElement, AiEnhancedTextareaProps>(
-  ({ aiScribeEnabled, onAiContent, className, ...props }, forwardedRef) => {
+  ({ aiScribeEnabled, onAiContent, className, chapterId, projectId, contentType, ...props }, forwardedRef) => {
     // Create local ref if one is not provided
     const innerRef = useRef<HTMLTextAreaElement>(null);
     const textareaRef = (forwardedRef || innerRef) as React.RefObject<HTMLTextAreaElement>;
     
     // State to track if we're in a browser environment (for SSR compatibility)
     const [isBrowser, setIsBrowser] = React.useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
     
     // Set isBrowser to true on component mount
     React.useEffect(() => {
@@ -111,12 +117,41 @@ export const AiEnhancedTextarea = React.forwardRef<HTMLTextAreaElement, AiEnhanc
           {showWritePopup && (
             <AiWritePopup
               position={cursorPosition}
-              onWrite={(instructions) => {
+              onWrite={async (instructions) => {
                 handleWrite(instructions);
-                const demoContent = instructions 
-                  ? `[AI writing with instructions: ${instructions}]` 
-                  : "[AI generated writing]";
-                handleAiGeneratedContent(demoContent);
+                
+                if (!chapterId || !projectId || !contentType) {
+                  console.error('Missing required parameters for AI generation');
+                  return;
+                }
+
+                setIsGenerating(true);
+                try {
+                  const result = await generateAIContent({
+                    type: contentType,
+                    chapterId,
+                    projectId,
+                    currentContent: textareaRef.current?.value
+                  });
+                  
+                  if (contentType === 'note' || contentType === 'beat') {
+                    const { title, content } = JSON.parse(result.data.generatedContent);
+                    // For notes and beats, we'll emit both title and content
+                    if (onAiContent) {
+                      onAiContent(content, title);
+                    } else {
+                      handleAiGeneratedContent(content);
+                    }
+                  } else {
+                    // For regular text, just use the content directly
+                    handleAiGeneratedContent(result.data.generatedContent);
+                  }
+                } catch (error) {
+                  console.error('Error generating AI content:', error);
+                  handleAiGeneratedContent('[Error generating AI content]');
+                } finally {
+                  setIsGenerating(false);
+                }
               }}
               onClose={closeWritePopup}
             />
@@ -127,15 +162,22 @@ export const AiEnhancedTextarea = React.forwardRef<HTMLTextAreaElement, AiEnhanc
     };
     
     return (
-      <>
+      <div className="relative">
         <Textarea
           ref={textareaRef}
           className={className}
           {...props}
         />
-        
+        {isGenerating && (
+          <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
+            <div className="flex items-center gap-2 bg-background p-2 rounded-md shadow-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Generating content...</span>
+            </div>
+          </div>
+        )}
         {renderPopups()}
-      </>
+      </div>
     );
   }
 );

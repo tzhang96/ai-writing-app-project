@@ -216,6 +216,9 @@ export function TextEditor({ activeChapterId, aiScribeEnabled, activeChapter, on
             className="w-full h-full min-h-[calc(100vh-250px)] p-4 text-lg leading-relaxed resize-none focus:outline-none bg-transparent"
             placeholder="Start writing here..."
             aiScribeEnabled={aiScribeEnabled}
+            chapterId={activeChapterId}
+            projectId={activeChapter?.projectId}
+            contentType="text"
           />
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">

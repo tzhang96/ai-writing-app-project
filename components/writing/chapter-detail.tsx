@@ -668,12 +668,25 @@ export function ChapterDetail({
                   value={newBeat.title}
                   onChange={(e) => setNewBeat(prev => ({ ...prev, title: e.target.value }))}
                 />
-                <Textarea
-                  placeholder="Beat content..."
-                  value={newBeat.content}
-                  onChange={(e) => setNewBeat(prev => ({ ...prev, content: e.target.value }))}
-                  className="min-h-[100px]"
-                />
+                <div className="relative pt-10">
+                  <AiEnhancedTextarea
+                    placeholder="Beat content..."
+                    value={newBeat.content}
+                    onChange={(e) => setNewBeat(prev => ({ ...prev, content: e.target.value }))}
+                    className="min-h-[100px]"
+                    aiScribeEnabled={aiScribeEnabled}
+                    chapterId={chapter.id}
+                    projectId={projectId}
+                    contentType="beat"
+                    onAiContent={(content, title) => {
+                      setNewBeat(prev => ({
+                        ...prev,
+                        content,
+                        title: title || prev.title
+                      }));
+                    }}
+                  />
+                </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="ghost" onClick={() => setIsAddingBeat(false)}>Cancel</Button>
                   <Button onClick={handleAddBeat}>Add Beat</Button>
@@ -728,12 +741,25 @@ export function ChapterDetail({
                   value={newNote.title}
                   onChange={(e) => setNewNote(prev => ({ ...prev, title: e.target.value }))}
                 />
-                <Textarea
-                  placeholder="Note content..."
-                  value={newNote.content}
-                  onChange={(e) => setNewNote(prev => ({ ...prev, content: e.target.value }))}
-                  className="min-h-[100px]"
-                />
+                <div className="relative pt-10">
+                  <AiEnhancedTextarea
+                    placeholder="Note content..."
+                    value={newNote.content}
+                    onChange={(e) => setNewNote(prev => ({ ...prev, content: e.target.value }))}
+                    className="min-h-[100px]"
+                    aiScribeEnabled={aiScribeEnabled}
+                    chapterId={chapter.id}
+                    projectId={projectId}
+                    contentType="note"
+                    onAiContent={(content, title) => {
+                      setNewNote(prev => ({
+                        ...prev,
+                        content,
+                        title: title || prev.title
+                      }));
+                    }}
+                  />
+                </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="ghost" onClick={() => setIsAddingNote(false)}>Cancel</Button>
                   <Button onClick={handleAddNote}>Add Note</Button>

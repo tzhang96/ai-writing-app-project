@@ -43,21 +43,20 @@ function getNewValues(existing: string | undefined, incoming: string[]): string[
 }
 
 // Helper function to filter out existing relationships
-function getNewRelationships(existing: string | undefined, incoming: CharacterRelationship[]): CharacterRelationship[] {
-  if (!existing) return incoming;
+function getNewRelationships(existing: string | undefined | null, incoming: CharacterRelationship[]): CharacterRelationship[] {
+  // Return just incoming if existing is null, undefined, or not a string
+  if (!existing || typeof existing !== 'string' || existing.trim() === '') {
+    return incoming;
+  }
+  
   const existingRelationships = existing.split('\n').map(rel => {
     const [targetAndType, description] = rel.split(': ');
     const [target, type] = targetAndType.split(' - ');
     return { targetName: target, type, description };
   });
-  
-  return incoming.filter(newRel => 
-    !existingRelationships.some(existingRel =>
-      existingRel.targetName === newRel.targetName &&
-      existingRel.type === newRel.type &&
-      existingRel.description === newRel.description
-    )
-  );
+
+  // Merge existing and incoming relationships
+  return [...existingRelationships, ...incoming];
 }
 
 export function EntityConfirmationDialog({

@@ -1,4 +1,4 @@
-import { onCall } from "firebase-functions/v2/https";
+import { onCall, CallableRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getFirestore } from "firebase-admin/firestore";
@@ -37,8 +37,70 @@ interface InitialProcessingResult {
   };
 }
 
+interface ProcessNoteRequest {
+  content: string;
+}
+
+interface ChatRequest {
+  message: string;
+  history: Array<{ role: 'user' | 'assistant', content: string }>;
+}
+
+interface AIGenerateContentRequest {
+  type: 'note' | 'beat' | 'text';
+  chapterId: string;
+  currentContent?: string;
+  projectId: string;
+}
+
+interface AIGenerateContentResponse {
+  generatedContent: string;
+}
+
+interface ChapterEntityConnection {
+  chapterId: string;
+  entityId: string;
+  entityType: 'character' | 'setting' | 'plotPoint';
+  projectId: string;
+}
+
+interface CharacterData {
+  name: string;
+  description?: string;
+  attributes?: {
+    personality: string[];
+    appearance: string[];
+    background: string[];
+  };
+  relationships?: Array<{
+    targetName: string;
+    type: string;
+    description: string;
+  }>;
+}
+
+interface SettingData {
+  name: string;
+  description?: string;
+  attributes?: {
+    type?: string;
+    features: string[];
+    significance: string[];
+  };
+}
+
+interface PlotPointData {
+  name: string;
+  description?: string;
+  attributes?: {
+    events: string[];
+    impact: string[];
+    connections: string[];
+  };
+}
+
 // Initial categorization and processing
-export const processNote = onCall({ secrets: [geminiKey] }, async (request) => {
+export const processNote = onCall({ secrets: [geminiKey] }, async (request: CallableRequest<ProcessNoteRequest>) => {
   const content = request.data.content;
   console.log('processNote started with content length:', content?.length);
   
@@ -387,5 +449,307 @@ export const clearDatabase = onCall(async (request) => {
   } catch (error) {
     console.error('Error clearing database:', error);
     throw error;
+  }
+});
+
+// Chat function
+export const chat = onCall({ secrets: [geminiKey] }, async (request: CallableRequest<ChatRequest>) => {
+  const { message, history } = request.data;
+  
+  if (!message || typeof message !== 'string') {
+    throw new Error('Invalid message provided');
+  }
+
+  try {
+    const apiKey = geminiKey.value().trim();
+    if (!apiKey) {
+      throw new Error('Gemini API key is not configured');
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    // Format conversation history into a clear context
+    const historyText = history.length > 0 
+      ? "Here is our conversation history so far. Please maintain context from this history when responding:\n\n" + 
+        history.map(msg => `${msg.role === 'user' ? 'Human' : 'Assistant'}: ${msg.content}`).join('\n\n')
+      : "";
+    
+    const fullPrompt = `${historyText}
+
+${historyText ? 'Current message:' : ''}
+Human: ${message}
+
+You are an AI writing assistant. Please provide a helpful response while maintaining context from our conversation history above. Be consistent with any previous information or decisions discussed. If the user refers to something mentioned earlier in the conversation, use that context in your response.`;
+
+    console.log('Full prompt being sent to Gemini:', fullPrompt);
+
+    const result = await model.generateContent(fullPrompt);
+    const response = await result.response;
+    
+    return {
+      text: response.text(),
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('Error in chat:', error);
+    throw new Error(error instanceof Error ? error.message : 'Unknown error in chat');
+  }
+});
+
+// AI content generation for notes, beats, and text
+export const generateAIContent = onCall({ secrets: [geminiKey] }, async (request: CallableRequest<AIGenerateContentRequest>): Promise<AIGenerateContentResponse> => {
+  const { type, chapterId, currentContent, projectId } = request.data;
+
+  if (!chapterId || !projectId) {
+    throw new Error('Missing required parameters');
+  }
+
+  try {
+    const apiKey = geminiKey.value().trim();
+    if (!apiKey) {
+      throw new Error('Gemini API key is not configured');
+    }
+
+    // Get chapter data from Firestore
+    const chapterDoc = await db.collection('chapters').doc(chapterId).get();
+    if (!chapterDoc.exists) {
+      throw new Error('Chapter not found');
+    }
+
+    const chapter = chapterDoc.data();
+
+    // Get entity connections for this chapter
+    const connectionsRef = db.collection('chapterEntityConnections');
+    const connectionsQuery = connectionsRef.where('chapterId', '==', chapterId);
+    const connectionsSnapshot = await connectionsQuery.get();
+
+    // Group connections by type
+    const connectionsByType = {
+      character: [] as string[],
+      setting: [] as string[],
+      plotPoint: [] as string[],
+    };
+
+    connectionsSnapshot.docs.forEach(doc => {
+      const connection = doc.data() as ChapterEntityConnection;
+      if (connection.entityType in connectionsByType) {
+        connectionsByType[connection.entityType].push(connection.entityId);
+      }
+    });
+
+    // Fetch entities for each type
+    const connections = {
+      characters: [] as CharacterData[],
+      settings: [] as SettingData[],
+      plotPoints: [] as PlotPointData[],
+    };
+
+    // Fetch characters
+    if (connectionsByType.character.length > 0) {
+      const characterDocs = await Promise.all(
+        connectionsByType.character.map(id => 
+          db.collection('characters').doc(id).get()
+        )
+      );
+      connections.characters = characterDocs
+        .filter(doc => doc.exists)
+        .map(doc => {
+          const data = doc.data();
+          return {
+            name: data?.name || 'Unnamed Character',
+            description: data?.description,
+            attributes: {
+              personality: Array.isArray(data?.attributes?.personality) ? data.attributes.personality : [],
+              appearance: Array.isArray(data?.attributes?.appearance) ? data.attributes.appearance : [],
+              background: Array.isArray(data?.attributes?.background) ? data.attributes.background : []
+            },
+            relationships: Array.isArray(data?.relationships) ? data.relationships.map(r => ({
+              targetName: r.targetName || 'Unknown',
+              type: r.type || 'Unknown',
+              description: r.description || 'No description'
+            })) : []
+          } as CharacterData;
+        });
+    }
+
+    // Fetch settings
+    if (connectionsByType.setting.length > 0) {
+      const settingDocs = await Promise.all(
+        connectionsByType.setting.map(id => 
+          db.collection('locations').doc(id).get()
+        )
+      );
+      connections.settings = settingDocs
+        .filter(doc => doc.exists)
+        .map(doc => {
+          const data = doc.data() as SettingData;
+          return {
+            name: data.name,
+            description: data.description,
+            attributes: {
+              type: data.attributes?.type,
+              features: data.attributes?.features || [],
+              significance: data.attributes?.significance || []
+            }
+          };
+        });
+    }
+
+    // Fetch plot points
+    if (connectionsByType.plotPoint.length > 0) {
+      const plotPointDocs = await Promise.all(
+        connectionsByType.plotPoint.map(id => 
+          db.collection('events').doc(id).get()
+        )
+      );
+      connections.plotPoints = plotPointDocs
+        .filter(doc => doc.exists)
+        .map(doc => {
+          const data = doc.data() as PlotPointData;
+          return {
+            name: data.name,
+            description: data.description,
+            attributes: {
+              events: data.attributes?.events || [],
+              impact: data.attributes?.impact || [],
+              connections: data.attributes?.connections || []
+            }
+          };
+        });
+    }
+
+    // Get chapter beats and notes
+    const [beatsSnapshot, notesSnapshot] = await Promise.all([
+      db.collection('chapterBeats')
+        .where('chapterId', '==', chapterId)
+        .orderBy('order')
+        .get(),
+      db.collection('chapterNotes')
+        .where('chapterId', '==', chapterId)
+        .get()
+    ]);
+
+    const beats = beatsSnapshot.docs.map(doc => doc.data());
+    const notes = notesSnapshot.docs.map(doc => doc.data());
+
+    // Create context string from metadata
+    const contextString = `
+Chapter Title: ${chapter?.title || 'Untitled'}
+Current Chapter Text: ${chapter?.content || ''}
+
+Connected Characters:
+${connections.characters.map(char => `
+- ${char.name}
+  Description: ${char.description || 'No description'}
+  Personality: ${char.attributes?.personality?.join(', ') || 'None specified'}
+  Appearance: ${char.attributes?.appearance?.join(', ') || 'None specified'}
+  Background: ${char.attributes?.background?.join(', ') || 'None specified'}
+  Relationships: ${Array.isArray(char.relationships) && char.relationships.length > 0 
+    ? char.relationships.map(r => `${r.targetName || 'Unknown'} (${r.type || 'Unknown'}): ${r.description || 'No description'}`).join(', ') 
+    : 'None specified'}
+`).join('\n')}
+
+Connected Settings:
+${connections.settings.map(setting => `
+- ${setting.name}
+  Description: ${setting.description || 'No description'}
+  Type: ${setting.attributes?.type || 'Unspecified'}
+  Features: ${setting.attributes?.features?.join(', ') || 'None specified'}
+  Significance: ${setting.attributes?.significance?.join(', ') || 'None specified'}
+`).join('\n')}
+
+Connected Plot Points:
+${connections.plotPoints.map(plot => `
+- ${plot.name}
+  Description: ${plot.description || 'No description'}
+  Events: ${plot.attributes?.events?.join(', ') || 'None specified'}
+  Impact: ${plot.attributes?.impact?.join(', ') || 'None specified'}
+  Character Connections: ${plot.attributes?.connections?.join(', ') || 'None specified'}
+`).join('\n')}
+
+Chapter Beats:
+${beats.map(b => `- ${b.title}: ${b.content}`).join('\n')}
+
+Chapter Notes:
+${notes.map(n => `- ${n.title}: ${n.content}`).join('\n')}
+`;
+
+    let prompt = '';
+    
+    switch (type) {
+      case 'note':
+        prompt = `You are a creative writing assistant. Based on the following context about this chapter, generate a note that could help develop the story further. The note should be insightful and relate to the existing content and metadata.
+
+Context:
+${contextString}
+
+Generate a note with both a title and content. The content should be 2-3 sentences that provide a unique insight or idea related to this chapter.
+
+Format your response EXACTLY like this, including the exact labels:
+TITLE: [A short, specific title for the note]
+CONTENT: [The actual note content without any prelude or explanation]`;
+        break;
+
+      case 'beat':
+        prompt = `You are a creative writing assistant. Based on the following context about this chapter, generate a logical next story beat that would help move the narrative forward. Consider the existing beats and story elements.
+
+Context:
+${contextString}
+
+Generate a new story beat with both a title and description. The description should be specific and actionable, helping to move the story forward in a meaningful way.
+
+Format your response EXACTLY like this, including the exact labels:
+TITLE: [A short, specific title for the beat]
+CONTENT: [The beat description without any prelude or explanation]`;
+        break;
+
+      case 'text':
+        prompt = `You are a creative writing assistant. Based on the following context about this chapter, generate a new paragraph that naturally fits into the current narrative. Consider all the existing story elements, character relationships, and plot points.
+
+Context:
+${contextString}
+
+Current Location in Text: ${currentContent || 'Start of chapter'}
+
+Generate a new paragraph (3-5 sentences) that flows naturally from the current content while considering all the chapter's metadata. The paragraph should maintain consistent tone and style with the existing text while advancing the story in a meaningful way.`;
+        break;
+
+      default:
+        throw new Error('Invalid generation type');
+    }
+
+    // Initialize Gemini
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let generatedContent = response.text().trim();
+
+    // Parse title and content for notes and beats
+    if (type === 'note' || type === 'beat') {
+      const titleMatch = generatedContent.match(/TITLE:\s*(.+?)(?=\n|$)/);
+      const contentMatch = generatedContent.match(/CONTENT:\s*(.+?)(?=\n|$)/);
+      
+      if (!titleMatch || !contentMatch) {
+        throw new Error('Generated content did not match expected format');
+      }
+
+      return {
+        generatedContent: JSON.stringify({
+          title: titleMatch[1].trim(),
+          content: contentMatch[1].trim()
+        })
+      };
+    }
+
+    return {
+      generatedContent
+    };
+
+  } catch (error) {
+    console.error('Error in generateAIContent:', error);
+    throw new Error(error instanceof Error ? error.message : 'Unknown error in content generation');
   }
 }); 

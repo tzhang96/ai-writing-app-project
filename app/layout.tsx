@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ProjectsProvider } from '@/lib/project-context';
 import { FirebaseProvider } from '@/lib/firebase-context';
 import { Toaster } from '@/components/ui/toaster';
+import { ChatProvider } from '@/lib/chat-context';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -28,10 +29,12 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <FirebaseProvider>
-            <ProjectsProvider>
-              {children}
-              <Toaster />
-            </ProjectsProvider>
+            <ChatProvider>
+              <ProjectsProvider>
+                {children}
+                <Toaster />
+              </ProjectsProvider>
+            </ChatProvider>
           </FirebaseProvider>
         </ThemeProvider>
       </body>
