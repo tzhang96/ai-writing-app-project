@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateAIContent = exports.chat = exports.clearDatabase = exports.processNote = void 0;
+exports.transformText = exports.generateAIContent = exports.chat = exports.clearDatabase = exports.processNote = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const generative_ai_1 = require("@google/generative-ai");
@@ -588,4 +588,6 @@ Generate a new paragraph (3-5 sentences) that flows naturally from the current c
         throw new Error(error instanceof Error ? error.message : 'Unknown error in content generation');
     }
 });
+var ai_transform_1 = require("./ai-transform");
+Object.defineProperty(exports, "transformText", { enumerable: true, get: function () { return ai_transform_1.transformText; } });
 //# sourceMappingURL=index.js.map

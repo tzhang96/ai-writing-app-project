@@ -59,24 +59,25 @@ export const AiEnhancedTextarea = React.forwardRef<HTMLTextAreaElement, AiEnhanc
       if (onAiContent) {
         onAiContent(newContent);
       } else if (textareaRef.current) {
-        // Default implementation if no callback is provided
+        // Get the current selection range
         const start = textareaRef.current.selectionStart;
         const end = textareaRef.current.selectionEnd;
         const currentValue = textareaRef.current.value;
         
-        const newValue = currentValue.substring(0, start) + 
-                         newContent + 
-                         currentValue.substring(end);
+        // Replace the selected text with the new content
+        const newValue = currentValue.substring(0, start) + newContent + currentValue.substring(end);
         
         // Create a synthetic event to update the value
         const event = new Event('input', { bubbles: true });
-        
-        // Update the value
         Object.defineProperty(event, 'target', {
           writable: false,
           value: { value: newValue }
         });
         
+        // Update the textarea value
+        textareaRef.current.value = newValue;
+        
+        // Dispatch the event if there's an onChange handler
         if (props.onChange) {
           props.onChange(event as unknown as React.ChangeEvent<HTMLTextAreaElement>);
         }
@@ -85,8 +86,9 @@ export const AiEnhancedTextarea = React.forwardRef<HTMLTextAreaElement, AiEnhanc
         setTimeout(() => {
           if (textareaRef.current) {
             textareaRef.current.focus();
-            textareaRef.current.selectionStart = start + newContent.length;
-            textareaRef.current.selectionEnd = start + newContent.length;
+            const newCursorPosition = start + newContent.length;
+            textareaRef.current.selectionStart = newCursorPosition;
+            textareaRef.current.selectionEnd = newCursorPosition;
           }
         }, 0);
       }
@@ -103,10 +105,48 @@ export const AiEnhancedTextarea = React.forwardRef<HTMLTextAreaElement, AiEnhanc
             <AiScribePopup
               selectedText={selectedText}
               position={popupPosition}
-              onAction={(action, instructions) => {
-                handleAiAction(action, instructions);
-                const demoContent = `[AI ${action} with instructions: ${instructions || 'none'}]`;
-                handleAiGeneratedContent(demoContent);
+              onAction={async (action, transformedText) => {
+                try {
+                  console.log('Original selection:', selectedText);
+                  console.log('Transformed text:', transformedText);
+                  
+                  if (textareaRef.current && selectionInfo) {
+                    const { start, end } = selectionInfo;
+                    const currentValue = textareaRef.current.value;
+                    
+                    console.log('Selection range:', { start, end });
+                    console.log('Text being replaced:', currentValue.substring(start, end));
+                    
+                    // Replace the selected text with the transformed text
+                    const newValue = currentValue.substring(0, start) + transformedText + currentValue.substring(end);
+                    
+                    // Update the textarea value directly
+                    textareaRef.current.value = newValue;
+                    
+                    // Create and dispatch the input event
+                    const event = new Event('input', { bubbles: true });
+                    Object.defineProperty(event, 'target', {
+                      writable: false,
+                      value: { value: newValue }
+                    });
+                    
+                    if (props.onChange) {
+                      props.onChange(event as unknown as React.ChangeEvent<HTMLTextAreaElement>);
+                    }
+                    
+                    // Set cursor position after the transformed text
+                    const newCursorPosition = start + transformedText.length;
+                    textareaRef.current.selectionStart = newCursorPosition;
+                    textareaRef.current.selectionEnd = newCursorPosition;
+                    
+                    // Focus the textarea
+                    textareaRef.current.focus();
+                  }
+                  
+                  closePopup();
+                } catch (error) {
+                  console.error('Error in AI transformation:', error);
+                }
               }}
               onClose={closePopup}
               selectionInfo={selectionInfo}

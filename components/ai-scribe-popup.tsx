@@ -9,7 +9,8 @@ import {
   Minimize2, 
   RefreshCw, 
   Edit,
-  PenLine
+  PenLine,
+  Loader2
 } from 'lucide-react';
 import {
   Tooltip,
@@ -17,6 +18,18 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getApp } from 'firebase/app';
+
+// Types for our AI operations
+type AIAction = 'expand' | 'summarize' | 'rephrase' | 'revise';
+
+interface AITransformationRequest {
+  text: string;
+  action: AIAction;
+  additionalInstructions?: string;
+  fullDocument?: string;
+}
 
 // Create a shared context for popup state management
 type PopupType = 'none' | 'scribe' | 'write';
@@ -45,7 +58,7 @@ function addPopupStateListener(listener: () => void) {
 interface AiScribePopupProps {
   selectedText: string;
   position: { top: number; left: number };
-  onAction: (action: 'expand' | 'summarize' | 'rephrase' | 'revise', instructions?: string) => void;
+  onAction: (action: AIAction, transformedText: string) => void;
   onClose: () => void;
   selectionInfo?: {
     textarea: HTMLTextAreaElement;
@@ -133,6 +146,8 @@ export function AiScribePopup({
 }: AiScribePopupProps) {
   const [mode, setMode] = useState<'compact' | 'expanded'>('compact');
   const [instructions, setInstructions] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   
   // Use shared hooks for positioning and click outside handling
@@ -149,8 +164,41 @@ export function AiScribePopup({
     };
   }, []);
   
-  const handleAction = (action: 'expand' | 'summarize' | 'rephrase' | 'revise') => {
-    onAction(action, instructions);
+  const handleAction = async (action: AIAction) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Get Firebase Functions instance
+      const functions = getFunctions(getApp());
+      const transformText = httpsCallable<AITransformationRequest, { success: boolean; transformedText: string }>(
+        functions,
+        'transformText'
+      );
+
+      console.log('Sending text for transformation:', selectedText);
+
+      // Call the Cloud Function
+      const result = await transformText({
+        text: selectedText,
+        action,
+        additionalInstructions: instructions,
+      });
+      
+      if (result.data.success) {
+        console.log('Received transformed text:', result.data.transformedText);
+        // Pass the transformed text to the onAction callback
+        onAction(action, result.data.transformedText);
+        onClose();
+      } else {
+        throw new Error('Failed to transform text');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred while processing your request');
+      console.error('Error in AI transformation:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   return (
@@ -160,9 +208,9 @@ export function AiScribePopup({
         className="fixed shadow-lg rounded-lg bg-background border border-border p-2 w-[280px] z-[9999]"
         style={{ 
           position: 'fixed',
-          top: 0, 
-          left: 0,
-          transform: `translate3d(0, 0, 0)` 
+          top: position.top, 
+          left: position.left,
+          transform: isPositionedAbove ? 'translateY(-100%)' : 'none'
         }}
       >
         <div className="p-3">
@@ -174,6 +222,7 @@ export function AiScribePopup({
                   variant="secondary"
                   className="h-6 text-xs px-2 py-0 w-full flex items-center justify-center gap-1"
                   onClick={() => handleAction('expand')}
+                  disabled={isLoading}
                 >
                   <Maximize2 className="h-3 w-3" />
                   <span>Expand</span>
@@ -191,6 +240,7 @@ export function AiScribePopup({
                   variant="secondary"
                   className="h-6 text-xs px-2 py-0 w-full flex items-center justify-center gap-1"
                   onClick={() => handleAction('summarize')}
+                  disabled={isLoading}
                 >
                   <Minimize2 className="h-3 w-3" />
                   <span>Summarize</span>
@@ -208,6 +258,7 @@ export function AiScribePopup({
                   variant="secondary"
                   className="h-6 text-xs px-2 py-0 w-full flex items-center justify-center gap-1"
                   onClick={() => handleAction('rephrase')}
+                  disabled={isLoading}
                 >
                   <RefreshCw className="h-3 w-3" />
                   <span>Rephrase</span>
@@ -225,6 +276,7 @@ export function AiScribePopup({
                   variant="secondary"
                   className="h-6 text-xs px-2 py-0 w-full flex items-center justify-center gap-1"
                   onClick={() => handleAction('revise')}
+                  disabled={isLoading}
                 >
                   <Edit className="h-3 w-3" />
                   <span>Revise</span>
@@ -241,7 +293,21 @@ export function AiScribePopup({
             className="text-xs h-7 w-full"
             value={instructions}
             onChange={(e) => setInstructions(e.target.value)}
+            disabled={isLoading}
           />
+          
+          {isLoading && (
+            <div className="mt-2 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Processing...</span>
+            </div>
+          )}
+          
+          {error && (
+            <div className="mt-2 text-xs text-destructive">
+              {error}
+            </div>
+          )}
         </div>
       </div>
     </TooltipProvider>
@@ -532,14 +598,40 @@ export function useAiScribe(textareaRef: React.RefObject<HTMLTextAreaElement>, a
     };
   }, [aiScribeEnabled]);
   
-  const handleAiAction = (action: 'expand' | 'summarize' | 'rephrase' | 'revise', instructions?: string) => {
-    // Here we would integrate with the AI to process the selected text
-    console.log(`AI ${action} for: ${selectedText}${instructions ? ` with instructions: ${instructions}` : ''}`);
+  const handleAiAction = async (action: AIAction, instructions?: string) => {
+    if (!textareaRef.current || !selectionRange.current) return;
     
-    // For now, we'll just close the popup
-    setShowAiPopup(false);
-    popupState.setPopupType('none');
-    selectionRange.current = null;
+    const textarea = textareaRef.current;
+    const { start, end } = selectionRange.current;
+    const fullText = textarea.value;
+    
+    try {
+      // Get Firebase Functions instance
+      const functions = getFunctions(getApp());
+      const transformText = httpsCallable<AITransformationRequest, { success: boolean; transformedText: string }>(
+        functions,
+        'transformText'
+      );
+
+      // Call the Cloud Function
+      const result = await transformText({
+        text: selectedText,
+        action,
+        additionalInstructions: instructions,
+        fullDocument: fullText // Pass the full document for context
+      });
+      
+      if (!result.data.success) {
+        throw new Error('Failed to transform text');
+      }
+
+      // Return the transformed text without modifying the textarea
+      return result.data.transformedText;
+      
+    } catch (error) {
+      console.error('Error in AI transformation:', error);
+      throw error;
+    }
   };
   
   const closePopup = () => {

@@ -23,11 +23,6 @@ export const getWordLimit = (): number => {
   return envLimit ? parseInt(envLimit, 10) : DEFAULT_WORD_LIMIT;
 };
 
-// For backward compatibility - returns word limit
-export const getTokenLimit = (): number => {
-  return getWordLimit();
-};
-
 // Count words in text (more user-friendly than tokens)
 export const countWords = (text: string): number => {
   // Remove HTML tags if present
@@ -38,11 +33,6 @@ export const countWords = (text: string): number => {
   
   // Filter out empty strings that might result from multiple spaces
   return words.filter(word => word.length > 0).length;
-};
-
-// For backward compatibility
-export const estimateTokenCount = (text: string): number => {
-  return countWords(text);
 };
 
 interface AITransformationRequest {
@@ -153,104 +143,5 @@ export const transformText = async (
   } catch (error) {
     console.error('Error in Gemini API call:', error);
     throw new Error(error instanceof Error ? error.message : 'Unknown error in Gemini API call');
-  }
-};
-
-// Log edit history to localStorage and file API (in development)
-export const logEditHistory = async (
-  originalText: string, 
-  newText: string, 
-  action: AIAction | string,
-  additionalInstructions?: string,
-  modelName?: GeminiModel
-) => {
-  // Format action properly
-  let formattedAction: string;
-  
-  if (typeof action === 'string') {
-    // Handle string actions (like manual edits)
-    if (action.startsWith('manual_')) {
-      formattedAction = `MANUAL_${action.substring(7).toUpperCase()}`;
-    } else if (action === '') {
-      // Skip empty actions (used for signaling popup close)
-      return;
-    } else {
-      formattedAction = `AI_${action.toUpperCase()}`;
-    }
-  } else {
-    // Handle specific AIAction enum values
-    switch(action) {
-      case 'expand':
-        formattedAction = 'AI_EXPAND';
-        break;
-      case 'summarize':
-        formattedAction = 'AI_SUMMARIZE';
-        break;
-      case 'rephrase':
-        formattedAction = 'AI_REPHRASE';
-        break;
-      case 'revise':
-        formattedAction = 'AI_REVISE';
-        break;
-      default:
-        formattedAction = 'AI_ACTION';
-    }
-  }
-    
-  const timestamp = new Date().toISOString();
-  
-  const editLog = {
-    timestamp,
-    action: formattedAction,
-    originalText,
-    newText,
-    additionalInstructions,
-    modelName: modelName || DEFAULT_MODEL // Ensure we always have a model name
-  };
-  
-  // Log to console for debugging
-  console.log('Edit logged:', editLog);
-  
-  try {
-    // Always store in localStorage for client-side history viewing
-    const history = localStorage.getItem('editHistory');
-    const editHistory = history ? JSON.parse(history) : [];
-    editHistory.unshift(editLog); // Add to beginning for newest-first order
-    
-    // Limit history to most recent 100 entries to prevent localStorage from getting too large
-    const limitedHistory = editHistory.slice(0, 100);
-    localStorage.setItem('editHistory', JSON.stringify(limitedHistory));
-    console.log('Edit history saved to localStorage, entries:', limitedHistory.length);
-    
-    // Also save to file API in development (not in production)
-    if (window.location.hostname === 'localhost' || 
-        window.location.hostname === '127.0.0.1' ||
-        window.location.hostname.includes('.local')) {
-      try {
-        const response = await fetch('/api/history', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            timestamp,
-            originalText,
-            newText,
-            action: formattedAction, // Use formatted action
-            additionalInstructions,
-            modelName: modelName || DEFAULT_MODEL
-          }),
-        });
-        
-        if (!response.ok) {
-          console.warn('Could not save edit history to file (development only)');
-        }
-      } catch (apiError) {
-        // Don't fail if the API call fails
-        console.warn('Error saving to history API (development only):', apiError);
-      }
-    }
-  } catch (error) {
-    console.error('Error saving edit history:', error);
   }
 }; 
