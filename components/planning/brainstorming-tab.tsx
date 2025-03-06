@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { AiEnhancedTextarea } from '@/components/ui/ai-enhanced-textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Trash2, MoreVertical, Wand2, Filter, ChevronDown, ChevronRight } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -102,7 +102,7 @@ function BrainstormCard({ brainstorm, onUpdate, onDelete, onProcess, aiScribeEna
       
       <div className={cn("transition-all", isExpanded ? "max-h-[500px]" : "max-h-0 overflow-hidden")}>
         <CardContent className="pt-2 px-3 pb-2">
-          <Textarea
+          <AiEnhancedTextarea
             ref={textareaRef}
             value={editContent}
             onChange={(e) => {
@@ -111,6 +111,7 @@ function BrainstormCard({ brainstorm, onUpdate, onDelete, onProcess, aiScribeEna
             }}
             className="min-h-[80px] resize-none border focus-visible:ring-1 text-sm"
             placeholder="Describe your brainstorm..."
+            aiScribeEnabled={aiScribeEnabled}
           />
         </CardContent>
         <CardFooter className="flex justify-between items-center pt-0 px-3 pb-2">
