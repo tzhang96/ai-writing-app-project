@@ -775,11 +775,10 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
                 label: 'Personality',
                 type: 'textarea' as const
               });
-              const { merged } = mergeArrays(
-                existingCharacter.personality?.split(', ') || [],
-                entity.data.attributes.personality
-              );
-              processedData.personality = merged.join(', ');
+              processedData = {
+                ...processedData,
+                personality: entity.data.attributes.personality.join(', ')
+              };
             }
             
             if (entity.data.attributes.appearance?.length > 0) {
@@ -788,11 +787,10 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
                 label: 'Appearance',
                 type: 'textarea' as const
               });
-              const { merged } = mergeArrays(
-                existingCharacter.appearance?.split(', ') || [],
-                entity.data.attributes.appearance
-              );
-              processedData.appearance = merged.join(', ');
+              processedData = {
+                ...processedData,
+                appearance: entity.data.attributes.appearance.join(', ')
+              };
             }
             
             if (entity.data.attributes.background?.length > 0) {
@@ -801,34 +799,30 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
                 label: 'Background',
                 type: 'textarea' as const
               });
-              const { merged } = mergeArrays(
-                existingCharacter.background?.split('. ') || [],
-                entity.data.attributes.background
-              );
-              processedData.background = merged.join('. ');
+              processedData = {
+                ...processedData,
+                background: entity.data.attributes.background.join(', ')
+              };
             }
           }
 
-          // Add relationships custom field if there are relationships
-          if (entity.data.relationships?.length > 0) {
-            customFieldsToCreate.push({
-              key: 'relationships',
-              label: 'Relationships',
-              type: 'textarea' as const
-            });
-            
-            // Format new relationships into a readable string
-            const relationshipStrings = entity.data.relationships.map((rel: CharacterRelationship) => 
-              `${rel.targetName} - ${rel.type}: ${rel.description}`
-            );
-            
-            processedData.relationships = relationshipStrings.join('\n');
-            processedData.relationshipData = entity.data.relationships;
-          }
-          
+          // Ensure custom fields exist
           if (customFieldsToCreate.length > 0) {
             await ensureCustomFields(projectId, COLLECTIONS.characters, customFieldsToCreate);
           }
+          
+          // Set basic data for new character
+          processedData = {
+            ...processedData,
+            name: entity.data.name,
+            description: entity.data.description || '',
+            projectId,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            aliases: entity.data.aliases || [],
+            attributes: entity.data.attributes || {},
+            relationshipData: entity.data.relationships || []
+          };
           
           // Set the new document
           batch.set(docRef, {
