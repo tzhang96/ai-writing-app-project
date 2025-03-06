@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -20,7 +20,7 @@ import {
   Redo,
   Search
 } from 'lucide-react';
-import { AiEnhancedTextarea } from '@/components/ui/ai-enhanced-textarea';
+import { AiEnhancedTipTapEditor } from '@/components/ui/ai-enhanced-tiptap-editor';
 
 interface ChapterContent {
   id: string;
@@ -63,33 +63,77 @@ export function TextEditor({ activeChapterId, aiScribeEnabled }: TextEditorProps
   const [currentContent, setCurrentContent] = useState('');
   const [wordCount, setWordCount] = useState(0);
   
+  // Reference to control editor methods
+  const editorRef = useRef<{
+    toggleBold: () => void;
+    toggleItalic: () => void;
+    toggleUnderline: () => void;
+    setTextAlign: (align: 'left' | 'center' | 'right') => void;
+    toggleBulletList: () => void;
+    toggleOrderedList: () => void;
+    toggleHeading: (level: 1 | 2 | 3) => void;
+    undo: () => void;
+    redo: () => void;
+    isActive: (name: string, attributes?: Record<string, any>) => boolean;
+  } | null>(null);
+  
+  // State to track current formatting
+  const [formatState, setFormatState] = useState({
+    bold: false,
+    italic: false,
+    underline: false,
+    bulletList: false,
+    orderedList: false,
+    heading1: false,
+    heading2: false,
+    heading3: false,
+    alignLeft: true,
+    alignCenter: false,
+    alignRight: false,
+  });
+  
   useEffect(() => {
     if (activeChapterId) {
       const content = chapterContents.find(c => c.id === activeChapterId)?.content || '';
       setCurrentContent(content);
-      setWordCount(countWords(content));
+      setWordCount(countWords(
+        // Strip HTML tags for word count
+        content.replace(/<[^>]*>/g, '')
+      ));
     } else {
       setCurrentContent('');
       setWordCount(0);
     }
   }, [activeChapterId, chapterContents]);
   
+  // Update format state when editor selection changes
+  useEffect(() => {
+    // Set up an interval to check formatting state
+    const intervalId = setInterval(() => {
+      if (editorRef.current) {
+        setFormatState({
+          bold: editorRef.current.isActive('bold'),
+          italic: editorRef.current.isActive('italic'),
+          underline: editorRef.current.isActive('underline'),
+          bulletList: editorRef.current.isActive('bulletList'),
+          orderedList: editorRef.current.isActive('orderedList'),
+          heading1: editorRef.current.isActive('heading', { level: 1 }),
+          heading2: editorRef.current.isActive('heading', { level: 2 }),
+          heading3: editorRef.current.isActive('heading', { level: 3 }),
+          alignLeft: editorRef.current.isActive('textAlign', { textAlign: 'left' }) || 
+                   (!editorRef.current.isActive('textAlign', { textAlign: 'center' }) && 
+                   !editorRef.current.isActive('textAlign', { textAlign: 'right' })),
+          alignCenter: editorRef.current.isActive('textAlign', { textAlign: 'center' }),
+          alignRight: editorRef.current.isActive('textAlign', { textAlign: 'right' }),
+        });
+      }
+    }, 100);
+    
+    return () => clearInterval(intervalId);
+  }, []);
+  
   const countWords = (text: string) => {
     return text.split(/\s+/).filter(word => word.length > 0).length;
-  };
-  
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newContent = e.target.value;
-    setCurrentContent(newContent);
-    setWordCount(countWords(newContent));
-    
-    if (activeChapterId) {
-      setChapterContents(chapterContents.map(c => 
-        c.id === activeChapterId 
-          ? { ...c, content: newContent } 
-          : c
-      ));
-    }
   };
   
   const getChapterTitle = () => {
@@ -110,55 +154,107 @@ export function TextEditor({ activeChapterId, aiScribeEnabled }: TextEditorProps
     <div className="h-full flex flex-col relative">
       <div className="border-b p-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant={formatState.bold ? "default" : "ghost"}
+            size="icon"
+            onClick={() => editorRef.current?.toggleBold()}
+          >
             <Bold className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant={formatState.italic ? "default" : "ghost"}
+            size="icon"
+            onClick={() => editorRef.current?.toggleItalic()}
+          >
             <Italic className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant={formatState.underline ? "default" : "ghost"}
+            size="icon"
+            onClick={() => editorRef.current?.toggleUnderline()}
+          >
             <Underline className="h-4 w-4" />
           </Button>
           
           <Separator orientation="vertical" className="h-6" />
           
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant={formatState.alignLeft ? "default" : "ghost"}
+            size="icon"
+            onClick={() => editorRef.current?.setTextAlign('left')}
+          >
             <AlignLeft className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant={formatState.alignCenter ? "default" : "ghost"}
+            size="icon"
+            onClick={() => editorRef.current?.setTextAlign('center')}
+          >
             <AlignCenter className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant={formatState.alignRight ? "default" : "ghost"}
+            size="icon"
+            onClick={() => editorRef.current?.setTextAlign('right')}
+          >
             <AlignRight className="h-4 w-4" />
           </Button>
           
           <Separator orientation="vertical" className="h-6" />
           
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant={formatState.bulletList ? "default" : "ghost"}
+            size="icon"
+            onClick={() => editorRef.current?.toggleBulletList()}
+          >
             <List className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant={formatState.orderedList ? "default" : "ghost"}
+            size="icon"
+            onClick={() => editorRef.current?.toggleOrderedList()}
+          >
             <ListOrdered className="h-4 w-4" />
           </Button>
           
           <Separator orientation="vertical" className="h-6" />
           
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant={formatState.heading1 ? "default" : "ghost"}
+            size="icon"
+            onClick={() => editorRef.current?.toggleHeading(1)}
+          >
             <Heading1 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant={formatState.heading2 ? "default" : "ghost"}
+            size="icon"
+            onClick={() => editorRef.current?.toggleHeading(2)}
+          >
             <Heading2 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant={formatState.heading3 ? "default" : "ghost"}
+            size="icon"
+            onClick={() => editorRef.current?.toggleHeading(3)}
+          >
             <Heading3 className="h-4 w-4" />
           </Button>
           
           <Separator orientation="vertical" className="h-6" />
           
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost"
+            size="icon"
+            onClick={() => editorRef.current?.undo()}
+          >
             <Undo className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost"
+            size="icon"
+            onClick={() => editorRef.current?.redo()}
+          >
             <Redo className="h-4 w-4" />
           </Button>
           
@@ -176,12 +272,27 @@ export function TextEditor({ activeChapterId, aiScribeEnabled }: TextEditorProps
       
       <ScrollArea className="flex-1 p-6">
         {activeChapterId ? (
-          <AiEnhancedTextarea
+          <AiEnhancedTipTapEditor
             value={currentContent}
-            onChange={handleContentChange}
-            className="w-full h-full min-h-[calc(100vh-250px)] p-4 text-lg leading-relaxed resize-none focus:outline-none bg-transparent"
+            onChange={(newContent) => {
+              setCurrentContent(newContent);
+              setWordCount(countWords(
+                // Strip HTML tags for word count
+                newContent.replace(/<[^>]*>/g, '')
+              ));
+              
+              if (activeChapterId) {
+                setChapterContents(chapterContents.map(c => 
+                  c.id === activeChapterId 
+                    ? { ...c, content: newContent } 
+                    : c
+                ));
+              }
+            }}
+            className="w-full"
             placeholder="Start writing here..."
             aiScribeEnabled={aiScribeEnabled}
+            editorRef={editorRef}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">
