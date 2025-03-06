@@ -660,6 +660,15 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
           // Create custom fields for character attributes if they exist
           const customFieldsToCreate = [];
           
+          // Always check if we need the relationships field
+          if (!customFieldsToCreate.some(f => f.key === 'relationships')) {
+            customFieldsToCreate.push({
+              key: 'relationships',
+              label: 'Relationships',
+              type: 'textarea' as const
+            });
+          }
+
           if (entity.data.attributes) {
             if (entity.data.attributes.personality?.length > 0) {
               customFieldsToCreate.push({
@@ -701,46 +710,37 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
             }
           }
           
-          // Add relationships custom field if there are relationships
-          if (entity.data.relationships?.length > 0) {
-            customFieldsToCreate.push({
-              key: 'relationships',
-              label: 'Relationships',
-              type: 'textarea' as const
-            });
-            
-            // Format new relationships into a readable string
-            const relationshipStrings = entity.data.relationships.map((rel: CharacterRelationship) => 
-              `${rel.targetName} - ${rel.type}: ${rel.description}`
-            );
-            
-            // Handle existing relationships - split by newlines if it exists
-            const existingRelationshipStrings = existingCharacter.relationships ? 
-              existingCharacter.relationships.split('\n') : 
-              [];
-            
-            const { merged: mergedRelationships } = mergeArrays(
-              existingRelationshipStrings,
-              relationshipStrings
-            );
-            
-            processedData.relationships = mergedRelationships.join('\n');
+          // Handle relationships data regardless of whether there are new relationships
+          const relationshipStrings = entity.data.relationships?.map((rel: CharacterRelationship) => 
+            `${rel.targetName} - ${rel.type}: ${rel.description}`
+          ) || [];
+          
+          // Handle existing relationships - split by newlines if it exists
+          const existingRelationshipStrings = existingCharacter.relationships && typeof existingCharacter.relationships === 'string' ? 
+            existingCharacter.relationships.split('\n') : 
+            [];
+          
+          const { merged: mergedRelationships } = mergeArrays(
+            existingRelationshipStrings,
+            relationshipStrings
+          );
+          
+          processedData.relationships = mergedRelationships.join('\n');
 
-            // Store the structured relationship data separately
-            const existingRelData = existingCharacter.relationshipData || [];
-            const newRelData = entity.data.relationships.filter(newRel => 
-              !existingRelData.some(existingRel => 
-                existingRel.targetName === newRel.targetName && 
-                existingRel.type === newRel.type && 
-                existingRel.description === newRel.description
-              )
-            );
-            
-            processedData.relationshipData = [
-              ...existingRelData,
-              ...newRelData
-            ];
-          }
+          // Store the structured relationship data separately
+          const existingRelData = existingCharacter.relationshipData || [];
+          const newRelData = entity.data.relationships?.filter(newRel => 
+            !existingRelData.some(existingRel => 
+              existingRel.targetName === newRel.targetName && 
+              existingRel.type === newRel.type && 
+              existingRel.description === newRel.description
+            )
+          ) || [];
+          
+          processedData.relationshipData = [
+            ...existingRelData,
+            ...newRelData
+          ];
           
           if (customFieldsToCreate.length > 0) {
             await ensureCustomFields(projectId, COLLECTIONS.characters, customFieldsToCreate);
@@ -751,7 +751,7 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
             ...processedData,
             name: entity.data.name,
             description: entity.data.description || existingCharacter.description || '',
-            aliases: mergeArrays(existingCharacter.aliases, entity.data.aliases),
+            aliases: mergeArrays(existingCharacter.aliases, entity.data.aliases).merged,
             attributes: mergeCharacterAttributes(existingCharacter.attributes, entity.data.attributes),
             relationshipData: [...(existingCharacter.relationshipData || []), ...(entity.data.relationships || [])]
           };
@@ -768,6 +768,15 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
           // Handle new character creation
           const customFieldsToCreate = [];
           
+          // Always check if we need the relationships field
+          if (!customFieldsToCreate.some(f => f.key === 'relationships')) {
+            customFieldsToCreate.push({
+              key: 'relationships',
+              label: 'Relationships',
+              type: 'textarea' as const
+            });
+          }
+
           if (entity.data.attributes) {
             if (entity.data.attributes.personality?.length > 0) {
               customFieldsToCreate.push({
@@ -861,7 +870,7 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
               processedData.features = mergeArrays(
                 existingLocation.features?.split(', ') || [],
                 entity.data.attributes.features
-              ).join(', ');
+              ).merged.join(', ');
             }
             
             if (entity.data.attributes.significance?.length > 0) {
@@ -871,9 +880,9 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
                 type: 'textarea' as const
               });
               processedData.significance = mergeArrays(
-                existingLocation.significance?.split('. ') || [],
+                existingLocation.significance?.split(', ') || [],
                 entity.data.attributes.significance
-              ).join('. ');
+              ).merged.join(', ');
             }
           }
           
@@ -923,7 +932,7 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
                 label: 'Significance',
                 type: 'textarea' as const
               });
-              processedData.significance = entity.data.attributes.significance.join('. ');
+              processedData.significance = entity.data.attributes.significance.join(', ');
             }
             
             if (customFieldsToCreate.length > 0) {

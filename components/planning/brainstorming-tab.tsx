@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { AiEnhancedTextarea } from '@/components/ui/ai-enhanced-textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Trash2, MoreVertical, Wand2, Filter, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
@@ -10,7 +11,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { AiScribePopup, useAiScribe } from '@/components/ai-scribe-popup';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/lib/firebase-context';
 import { useProjects } from '@/lib/project-context';
@@ -53,14 +53,6 @@ function BrainstormCard({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const updateTimeoutRef = useRef<NodeJS.Timeout>();
   
-  const {
-    showAiPopup,
-    selectedText,
-    popupPosition,
-    handleAiAction,
-    closePopup
-  } = useAiScribe(textareaRef, aiScribeEnabled);
-
   // Debounced update function
   const handleUpdate = (newTitle: string, newContent: string) => {
     if (updateTimeoutRef.current) {
@@ -70,6 +62,13 @@ function BrainstormCard({
     updateTimeoutRef.current = setTimeout(() => {
       onUpdate(brainstorm.id, newTitle, newContent);
     }, 500); // 500ms debounce
+  };
+
+  // Handle AI-generated content
+  const handleAiContent = (content: string) => {
+    const newContent = editContent + content;
+    setEditContent(newContent);
+    handleUpdate(editTitle, newContent);
   };
 
   useEffect(() => {
@@ -143,6 +142,9 @@ function BrainstormCard({
             className="min-h-[80px] resize-none border focus-visible:ring-1 text-sm"
             placeholder="Describe your brainstorm..."
             aiScribeEnabled={aiScribeEnabled}
+            onAiContent={handleAiContent}
+            contentType="note"
+            projectId={activeProject.id}
           />
         </CardContent>
         <CardFooter className="flex justify-between items-center pt-0 px-3 pb-2">
@@ -234,16 +236,6 @@ function BrainstormCard({
         </CardFooter>
       </div>
       
-      {/* AI Scribe Popup */}
-      {showAiPopup && (
-        <AiScribePopup
-          selectedText={selectedText}
-          position={popupPosition}
-          onAction={handleAiAction}
-          onClose={closePopup}
-        />
-      )}
-
       {showConfirmation && (
         <EntityConfirmationDialog
           entities={extractedEntities}

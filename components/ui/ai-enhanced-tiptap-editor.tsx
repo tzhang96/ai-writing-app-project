@@ -459,11 +459,25 @@ export function AiEnhancedTipTapEditor({
             position={popupPosition}
             onAction={(action, instructions) => {
               handleAiAction(action, instructions);
-              const demoContent = `[AI ${action} with instructions: ${instructions || 'none'}]`;
-              handleAiGeneratedContent(demoContent);
+              
+              // Mock functionality for testing - replace selected text with "test"
+              if (editor) {
+                const { from, to } = editor.state.selection;
+                
+                // Replace the selected text with "test"
+                editor.commands.deleteRange({ from, to });
+                editor.commands.insertContentAt(from, "test");
+                
+                // Set cursor after the inserted text
+                const newPos = from + "test".length;
+                editor.commands.setTextSelection(newPos);
+                
+                console.log('TipTap: Replaced selected text with "test"');
+              }
             }}
             onClose={closePopup}
             selectionInfo={selectionInfo}
+            className="scribe-popup"
           />
         )}
         
@@ -473,12 +487,11 @@ export function AiEnhancedTipTapEditor({
             position={cursorPosition}
             onWrite={(instructions) => {
               handleWrite(instructions);
-              const demoContent = instructions 
-                ? `[AI writing with instructions: ${instructions}]` 
-                : "[AI generated writing]";
+              const demoContent = "test";
               handleAiGeneratedContent(demoContent);
             }}
             onClose={closeWritePopup}
+            className="write-popup"
           />
         )}
       </TooltipProvider>,

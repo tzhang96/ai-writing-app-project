@@ -116,6 +116,17 @@ export interface AIGenerateResponse {
   suggestions: string[];
 }
 
+export interface AIGenerateContentRequest {
+  type: 'note' | 'beat' | 'text';
+  chapterId: string;
+  currentContent?: string;
+  projectId: string;
+}
+
+export interface AIGenerateContentResponse {
+  generatedContent: string;
+}
+
 // Cloud Functions
 export const processNote = httpsCallable<ProcessNoteRequest, ProcessNoteResponse>(
   functions,
@@ -130,6 +141,11 @@ export const analyzeText = httpsCallable<AIAnalysisRequest, AIAnalysisResponse>(
 export const generateText = httpsCallable<AIGenerateRequest, AIGenerateResponse>(
   functions,
   'generateText'
+);
+
+export const generateAIContent = httpsCallable<AIGenerateContentRequest, AIGenerateContentResponse>(
+  functions,
+  'generateAIContent'
 );
 
 // Optional: Add the clear database function if needed

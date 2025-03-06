@@ -86,6 +86,3 @@ textarea {
   color: inherit;
   background-color: inherit;
 }
-
-/* Import TipTap Editor Styles */
-@import "../styles/tiptap.css";
