@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { ChapterWithRelationships } from '@/lib/db/types';
 import { 
   Bold, 
   Italic, 
@@ -30,9 +31,11 @@ interface ChapterContent {
 interface TextEditorProps {
   activeChapterId: string | null;
   aiScribeEnabled: boolean;
+  activeChapter?: ChapterWithRelationships | null;
+  onChapterUpdate?: (chapterId: string, title: string) => void;
 }
 
-export function TextEditor({ activeChapterId, aiScribeEnabled }: TextEditorProps) {
+export function TextEditor({ activeChapterId, aiScribeEnabled, activeChapter, onChapterUpdate }: TextEditorProps) {
   const [chapterContents, setChapterContents] = useState<ChapterContent[]>([
     { 
       id: 'chapter-1', 
@@ -62,6 +65,8 @@ export function TextEditor({ activeChapterId, aiScribeEnabled }: TextEditorProps
   
   const [currentContent, setCurrentContent] = useState('');
   const [wordCount, setWordCount] = useState(0);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState('');
   
   useEffect(() => {
     if (activeChapterId) {
@@ -93,17 +98,29 @@ export function TextEditor({ activeChapterId, aiScribeEnabled }: TextEditorProps
   };
   
   const getChapterTitle = () => {
-    if (!activeChapterId) return 'No chapter selected';
-    
-    const chapterId = activeChapterId;
-    if (chapterId.startsWith('chapter-')) {
-      return `Chapter ${chapterId.split('-')[1]}`;
-    } else if (chapterId.startsWith('section-')) {
-      const parts = chapterId.split('-');
-      return `Section ${parts[2]} (Chapter ${parts[1]})`;
+    if (!activeChapter) return 'No chapter selected';
+    return activeChapter.title || 'Untitled Chapter';
+  };
+  
+  const handleTitleClick = () => {
+    if (!activeChapter || !onChapterUpdate) return;
+    setEditedTitle(activeChapter.title || '');
+    setIsEditingTitle(true);
+  };
+  
+  const handleTitleSave = () => {
+    if (!activeChapter || !onChapterUpdate || !editedTitle.trim()) return;
+    onChapterUpdate(activeChapter.id, editedTitle.trim());
+    setIsEditingTitle(false);
+  };
+  
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleTitleSave();
+    } else if (e.key === 'Escape') {
+      setIsEditingTitle(false);
     }
-    
-    return 'Unknown';
   };
   
   return (
@@ -171,7 +188,24 @@ export function TextEditor({ activeChapterId, aiScribeEnabled }: TextEditorProps
       </div>
       
       <div className="p-4 border-b">
-        <h2 className="text-xl font-semibold">{getChapterTitle()}</h2>
+        {isEditingTitle ? (
+          <input
+            type="text"
+            value={editedTitle}
+            onChange={(e) => setEditedTitle(e.target.value)}
+            onBlur={handleTitleSave}
+            onKeyDown={handleTitleKeyDown}
+            className="text-xl font-semibold w-full bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-primary/20 rounded px-1"
+            autoFocus
+          />
+        ) : (
+          <h2 
+            className="text-xl font-semibold cursor-pointer hover:text-primary/80 transition-colors"
+            onClick={handleTitleClick}
+          >
+            {getChapterTitle()}
+          </h2>
+        )}
       </div>
       
       <ScrollArea className="flex-1 p-6">

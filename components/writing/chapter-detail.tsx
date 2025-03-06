@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,261 +15,521 @@ import {
   Plus,
   ChevronUp,
   MoreVertical,
-  BookOpen
+  BookOpen,
+  Loader2,
+  StickyNote
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ChapterMetadata, Chapter, ChapterCharacter, ChapterSetting, ChapterPlotPoint } from './chapter-types';
+import { MetadataCard, AddItemButton } from './metadata-card';
 import { AiEnhancedTextarea } from "@/components/ui/ai-enhanced-textarea";
-import { MetadataCard, MetadataItem, AddItemButton } from './metadata-card';
+import { EntitySearchModal } from './entity-search-modal';
+import { Entity, ChapterWithRelationships } from '@/lib/db/types';
+import { getChapterWithRelationships, addEntityToChapter, removeEntityFromChapter, createChapterBeat, deleteChapterBeat, createChapterNote, deleteChapterNote } from '@/lib/db/chapters';
 
 export interface ChapterDetailProps {
-  chapter: Chapter;
+  chapter: ChapterWithRelationships;
+  projectId: string;
   onGoBack: () => void;
-  onChapterUpdate: (chapter: Chapter) => void;
+  onChapterUpdate: (chapter: ChapterWithRelationships) => void;
   aiScribeEnabled?: boolean;
 }
 
-export function ChapterDetail({ chapter, onGoBack, onChapterUpdate, aiScribeEnabled = true }: ChapterDetailProps) {
+function renderCharacterMetadata(character: Entity) {
+  const metadata = character.metadata || {};
+  
+  type CharacterColorType = 'aliases' | 'personality' | 'appearance' | 'background';
+  const getRotatingColors = (index: number, type: CharacterColorType): string => {
+    const colorSets = {
+      aliases: [
+        "bg-violet-100 text-violet-800 hover:bg-violet-200",
+        "bg-fuchsia-100 text-fuchsia-800 hover:bg-fuchsia-200",
+        "bg-purple-100 text-purple-800 hover:bg-purple-200",
+      ],
+      personality: [
+        "bg-rose-100 text-rose-800 hover:bg-rose-200",
+        "bg-pink-100 text-pink-800 hover:bg-pink-200",
+        "bg-red-100 text-red-800 hover:bg-red-200",
+      ],
+      appearance: [
+        "bg-sky-100 text-sky-800 hover:bg-sky-200",
+        "bg-blue-100 text-blue-800 hover:bg-blue-200",
+        "bg-cyan-100 text-cyan-800 hover:bg-cyan-200",
+      ],
+      background: [
+        "bg-amber-100 text-amber-800 hover:bg-amber-200",
+        "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+        "bg-orange-100 text-orange-800 hover:bg-orange-200",
+      ],
+    } as const;
+    return colorSets[type][index % colorSets[type].length];
+  };
+
+  return (
+    <div className="space-y-3">
+      {metadata.description && (
+        <p className="text-sm text-muted-foreground">
+          {metadata.description}
+        </p>
+      )}
+      
+      {/* Aliases */}
+      {metadata.aliases && metadata.aliases.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Also known as:</p>
+          <div className="flex flex-wrap gap-1">
+            {metadata.aliases.map((alias: string, index: number) => (
+              <Badge 
+                key={`alias-${index}`} 
+                variant="secondary"
+                className={getRotatingColors(index, 'aliases')}
+              >
+                {alias}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Personality Traits */}
+      {metadata.attributes?.personality && metadata.attributes.personality.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Personality:</p>
+          <div className="flex flex-wrap gap-1">
+            {metadata.attributes.personality.map((trait: string, index: number) => (
+              <Badge 
+                key={`personality-${index}`} 
+                variant="secondary"
+                className={getRotatingColors(index, 'personality')}
+              >
+                {trait}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Appearance */}
+      {metadata.attributes?.appearance && metadata.attributes.appearance.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Appearance:</p>
+          <div className="flex flex-wrap gap-1">
+            {metadata.attributes.appearance.map((trait: string, index: number) => (
+              <Badge 
+                key={`appearance-${index}`} 
+                variant="secondary"
+                className={getRotatingColors(index, 'appearance')}
+              >
+                {trait}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Background */}
+      {metadata.attributes?.background && metadata.attributes.background.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Background:</p>
+          <div className="flex flex-wrap gap-1">
+            {metadata.attributes.background.map((trait: string, index: number) => (
+              <Badge 
+                key={`background-${index}`} 
+                variant="secondary"
+                className={getRotatingColors(index, 'background')}
+              >
+                {trait}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Render plot point metadata
+const renderPlotPointMetadata = (plotPoint: Entity) => {
+  const metadata = plotPoint.metadata || {};
+  
+  type PlotPointColorType = 'type' | 'events' | 'impact' | 'connections';
+  const getRotatingColors = (index: number, type: PlotPointColorType): string => {
+    const colorSets = {
+      type: [
+        "bg-rose-100 text-rose-800 hover:bg-rose-200",
+        "bg-pink-100 text-pink-800 hover:bg-pink-200",
+        "bg-red-100 text-red-800 hover:bg-red-200",
+      ],
+      events: [
+        "bg-amber-100 text-amber-800 hover:bg-amber-200",
+        "bg-orange-100 text-orange-800 hover:bg-orange-200",
+        "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+      ],
+      impact: [
+        "bg-emerald-100 text-emerald-800 hover:bg-emerald-200",
+        "bg-green-100 text-green-800 hover:bg-green-200",
+        "bg-teal-100 text-teal-800 hover:bg-teal-200",
+      ],
+      connections: [
+        "bg-violet-100 text-violet-800 hover:bg-violet-200",
+        "bg-purple-100 text-purple-800 hover:bg-purple-200",
+        "bg-fuchsia-100 text-fuchsia-800 hover:bg-fuchsia-200",
+      ],
+    } as const;
+    return colorSets[type][index % colorSets[type].length];
+  };
+
+  return (
+    <div className="space-y-3">
+      {metadata.description && (
+        <p className="text-sm text-muted-foreground">
+          {metadata.description}
+        </p>
+      )}
+      
+      {/* Type */}
+      {metadata.attributes?.type && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Type:</p>
+          <div className="flex flex-wrap gap-1">
+            <Badge 
+              variant="secondary"
+              className={getRotatingColors(0, 'type')}
+            >
+              {metadata.attributes.type}
+            </Badge>
+          </div>
+        </div>
+      )}
+      
+      {/* Events */}
+      {Array.isArray(metadata.attributes?.events) && metadata.attributes.events.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Key Events:</p>
+          <div className="flex flex-wrap gap-1">
+            {metadata.attributes.events.map((event: string, index: number) => (
+              <Badge 
+                key={`event-${index}`} 
+                variant="secondary"
+                className={getRotatingColors(index, 'events')}
+              >
+                {event}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Impact */}
+      {Array.isArray(metadata.attributes?.impact) && metadata.attributes.impact.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Story Impact:</p>
+          <div className="flex flex-wrap gap-1">
+            {metadata.attributes.impact.map((item: string, index: number) => (
+              <Badge 
+                key={`impact-${index}`} 
+                variant="secondary"
+                className={getRotatingColors(index, 'impact')}
+              >
+                {item}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Character Connections */}
+      {Array.isArray(metadata.attributes?.connections) && metadata.attributes.connections.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Character Connections:</p>
+          <div className="flex flex-wrap gap-1">
+            {metadata.attributes.connections.map((connection: string, index: number) => (
+              <Badge 
+                key={`connection-${index}`} 
+                variant="secondary"
+                className={getRotatingColors(index, 'connections')}
+              >
+                {connection}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export function ChapterDetail({ 
+  chapter, 
+  projectId,
+  onGoBack, 
+  onChapterUpdate, 
+  aiScribeEnabled = true 
+}: ChapterDetailProps) {
   // State for expanded cards
   const [expandedCards, setExpandedCards] = useState({
-    storyBeats: true,
     characters: true,
     settings: true,
     plotPoints: true,
-    notes: true
+    storyBeats: true,
+    notes: true,
   });
+  
+  // State for search modal
+  const [searchModal, setSearchModal] = useState<{
+    isOpen: boolean;
+    type: 'character' | 'setting' | 'plotPoint';
+  }>({
+    isOpen: false,
+    type: 'character',
+  });
+  
+  // State for new beat/note
+  const [newBeat, setNewBeat] = useState({ title: '', content: '' });
+  const [newNote, setNewNote] = useState({ title: '', content: '' });
+  const [isAddingBeat, setIsAddingBeat] = useState(false);
+  const [isAddingNote, setIsAddingNote] = useState(false);
+  
+  // Loading state
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Fetch chapter data with relationships
+  const refreshChapterData = async () => {
+    setIsLoading(true);
+    try {
+      const updatedChapter = await getChapterWithRelationships(chapter.id);
+      onChapterUpdate(updatedChapter);
+    } catch (error) {
+      console.error('Error refreshing chapter data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Toggle card expansion
+  const toggleCard = (cardName: keyof typeof expandedCards) => {
+    setExpandedCards(prev => ({
+      ...prev,
+      [cardName]: !prev[cardName]
+    }));
+  };
+  
+  // Handle adding an entity
+  const handleAddEntity = async (entity: Entity) => {
+    if (!searchModal) return;
+    
+    setIsLoading(true);
+    try {
+      await addEntityToChapter(chapter.id, entity.id, entity.type, projectId);
+      await refreshChapterData();
+    } catch (error) {
+      console.error('Error adding entity:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Handle removing an entity
+  const handleRemoveEntity = async (entityId: string) => {
+    setIsLoading(true);
+    try {
+      await removeEntityFromChapter(chapter.id, entityId);
+      await refreshChapterData();
+    } catch (error) {
+      console.error('Error removing entity:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Render setting metadata
+  const renderSettingMetadata = (setting: Entity) => {
+    const metadata = setting.metadata || {};
+    
+    type SettingColorType = 'type' | 'features' | 'significance';
+    const getRotatingColors = (index: number, type: SettingColorType): string => {
+      const colorSets = {
+        type: [
+          "bg-emerald-100 text-emerald-800 hover:bg-emerald-200",
+          "bg-green-100 text-green-800 hover:bg-green-200",
+          "bg-teal-100 text-teal-800 hover:bg-teal-200",
+        ],
+        features: [
+          "bg-cyan-100 text-cyan-800 hover:bg-cyan-200",
+          "bg-sky-100 text-sky-800 hover:bg-sky-200",
+          "bg-blue-100 text-blue-800 hover:bg-blue-200",
+        ],
+        significance: [
+          "bg-indigo-100 text-indigo-800 hover:bg-indigo-200",
+          "bg-violet-100 text-violet-800 hover:bg-violet-200",
+          "bg-purple-100 text-purple-800 hover:bg-purple-200",
+        ],
+      } as const;
+      return colorSets[type][index % colorSets[type].length];
+    };
 
-  // Toggle card expanded state
-  const toggleCard = (cardName: string) => {
-    setExpandedCards({
-      ...expandedCards,
-      [cardName]: !expandedCards[cardName as keyof typeof expandedCards]
+    return (
+      <div className="space-y-3">
+        {metadata.description && (
+          <p className="text-sm text-muted-foreground">
+            {metadata.description}
+          </p>
+        )}
+        
+        {/* Type */}
+        {metadata.attributes?.type && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Type:</p>
+            <div className="flex flex-wrap gap-1">
+              <Badge 
+                variant="secondary"
+                className={getRotatingColors(0, 'type')}
+              >
+                {metadata.attributes.type}
+              </Badge>
+            </div>
+          </div>
+        )}
+        
+        {/* Features */}
+        {Array.isArray(metadata.attributes?.features) && metadata.attributes.features.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Features:</p>
+            <div className="flex flex-wrap gap-1">
+              {metadata.attributes.features.map((feature: string, index: number) => (
+                <Badge 
+                  key={`feature-${index}`} 
+                  variant="secondary"
+                  className={getRotatingColors(index, 'features')}
+                >
+                  {feature}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Significance */}
+        {Array.isArray(metadata.attributes?.significance) && metadata.attributes.significance.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Significance:</p>
+            <div className="flex flex-wrap gap-1">
+              {metadata.attributes.significance.map((item: string, index: number) => (
+                <Badge 
+                  key={`significance-${index}`} 
+                  variant="secondary"
+                  className={getRotatingColors(index, 'significance')}
+                >
+                  {item}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+  
+  // Function to handle adding a new beat
+  const handleAddBeat = async () => {
+    if (!newBeat.title || !newBeat.content) return;
+    
+    try {
+      const order = chapter.beats?.length || 0;
+      await createChapterBeat(
+        chapter.id,
+        projectId,
+        newBeat.title,
+        newBeat.content,
+        order
+      );
+      
+      // Refresh chapter data
+      const updatedChapter = await getChapterWithRelationships(chapter.id);
+      onChapterUpdate(updatedChapter);
+      
+      // Reset form
+      setNewBeat({ title: '', content: '' });
+      setIsAddingBeat(false);
+    } catch (error) {
+      console.error('Error adding beat:', error);
+    }
+  };
+
+  // Function to handle adding a new note
+  const handleAddNote = async () => {
+    if (!newNote.title || !newNote.content) return;
+    
+    try {
+      await createChapterNote(
+        chapter.id,
+        projectId,
+        newNote.title,
+        newNote.content
+      );
+      
+      // Refresh chapter data
+      const updatedChapter = await getChapterWithRelationships(chapter.id);
+      onChapterUpdate(updatedChapter);
+      
+      // Reset form
+      setNewNote({ title: '', content: '' });
+      setIsAddingNote(false);
+    } catch (error) {
+      console.error('Error adding note:', error);
+    }
+  };
+
+  // Function to handle deleting a beat
+  const handleDeleteBeat = async (beatId: string) => {
+    try {
+      await deleteChapterBeat(beatId);
+      
+      // Refresh chapter data
+      const updatedChapter = await getChapterWithRelationships(chapter.id);
+      onChapterUpdate(updatedChapter);
+    } catch (error) {
+      console.error('Error deleting beat:', error);
+    }
+  };
+
+  // Function to handle deleting a note
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+      await deleteChapterNote(noteId);
+      
+      // Refresh chapter data
+      const updatedChapter = await getChapterWithRelationships(chapter.id);
+      onChapterUpdate(updatedChapter);
+    } catch (error) {
+      console.error('Error deleting note:', error);
+    }
+  };
+  
+  // Function to close search modal
+  const closeSearchModal = () => {
+    setSearchModal({
+      isOpen: false,
+      type: 'character'
+    });
+  };
+
+  // Function to open search modal
+  const openSearchModal = (type: 'character' | 'setting' | 'plotPoint') => {
+    setSearchModal({
+      isOpen: true,
+      type
     });
   };
   
-  // Helper functions for updating chapter metadata
-  const updateMetadata = (field: keyof ChapterMetadata, value: any) => {
-    const updatedChapter = {
-      ...chapter,
-      metadata: {
-        ...chapter.metadata,
-        [field]: value
-      }
-    };
-    onChapterUpdate(updatedChapter);
-  };
-
-  // Add a new character
-  const addCharacter = (name: string) => {
-    if (!name.trim()) return;
-    
-    const newCharacter: ChapterCharacter = {
-      name: name.trim(),
-      aliases: [],
-      attributes: {
-        personality: [],
-        appearance: [],
-        background: []
-      },
-      relationships: []
-    };
-    
-    const updatedCharacters = [...(chapter.metadata.characters || []), newCharacter];
-    updateMetadata('characters', updatedCharacters);
-  };
-
-  // Add a new setting
-  const addSetting = (name: string) => {
-    if (!name.trim()) return;
-    
-    const newSetting: ChapterSetting = {
-      name: name.trim(),
-      description: '',
-      attributes: {
-        type: '',
-        features: [],
-        significance: [],
-        associatedCharacters: []
-      },
-      characterConnections: []
-    };
-    
-    const updatedSettings = [...(chapter.metadata.settings || []), newSetting];
-    updateMetadata('settings', updatedSettings);
-  };
-
-  // Add a new plot point
-  const addPlotPoint = (title: string) => {
-    if (!title.trim()) return;
-    
-    const newPlotPoint: ChapterPlotPoint = {
-      id: `plot-${Date.now()}`,
-      title: title.trim(),
-      description: '',
-      sequence: (chapter.metadata.plotPoints || []).length
-    };
-    
-    const updatedPlotPoints = [...(chapter.metadata.plotPoints || []), newPlotPoint];
-    updateMetadata('plotPoints', updatedPlotPoints);
-  };
-
-  // Move a plot point up in sequence
-  const movePlotPointUp = (id: string) => {
-    const plotPoints = [...(chapter.metadata.plotPoints || [])];
-    const index = plotPoints.findIndex(pp => pp.id === id);
-    
-    if (index <= 0) return;
-    
-    // Swap with previous item
-    const temp = plotPoints[index - 1];
-    plotPoints[index - 1] = { ...plotPoints[index], sequence: index - 1 };
-    plotPoints[index] = { ...temp, sequence: index };
-    
-    updateMetadata('plotPoints', plotPoints);
-  };
-
-  // Move a plot point down in sequence
-  const movePlotPointDown = (id: string) => {
-    const plotPoints = [...(chapter.metadata.plotPoints || [])];
-    const index = plotPoints.findIndex(pp => pp.id === id);
-    
-    if (index < 0 || index >= plotPoints.length - 1) return;
-    
-    // Swap with next item
-    const temp = plotPoints[index + 1];
-    plotPoints[index + 1] = { ...plotPoints[index], sequence: index + 1 };
-    plotPoints[index] = { ...temp, sequence: index };
-    
-    updateMetadata('plotPoints', plotPoints);
-  };
-
-  // Update a plot point field
-  const updatePlotPoint = (id: string, field: keyof ChapterPlotPoint, value: string) => {
-    const plotPoints = [...(chapter.metadata.plotPoints || [])];
-    const index = plotPoints.findIndex(pp => pp.id === id);
-    
-    if (index < 0) return;
-    
-    plotPoints[index] = {
-      ...plotPoints[index],
-      [field]: value
-    };
-    
-    updateMetadata('plotPoints', plotPoints);
-  };
-
-  // Delete a plot point
-  const deletePlotPoint = (id: string) => {
-    const plotPoints = [...(chapter.metadata.plotPoints || [])];
-    const index = plotPoints.findIndex(pp => pp.id === id);
-    
-    if (index < 0) return;
-    
-    plotPoints.splice(index, 1);
-    
-    // Update sequence numbers
-    const updatedPlotPoints = plotPoints.map((pp, idx) => ({
-      ...pp,
-      sequence: idx
-    }));
-    
-    updateMetadata('plotPoints', updatedPlotPoints);
-  };
-
-  // Remove an item from a metadata array
-  const removeMetadataItem = (field: 'characters' | 'settings' | 'plotPoints', index: number) => {
-    const currentArray = chapter.metadata[field] || [];
-    const updatedArray = [...currentArray];
-    updatedArray.splice(index, 1);
-    updateMetadata(field, updatedArray);
-  };
-  
   return (
-    <div className="p-4 space-y-4">
-      {/* Plot Points Card - Using the reusable components */}
-      <MetadataCard
-        title="Plot Points"
-        icon={<BookOpen className="h-5 w-5 mr-2" />}
-        isExpanded={expandedCards.plotPoints}
-        onToggle={() => toggleCard('plotPoints')}
-      >
-        <div className="space-y-3">
-          {(chapter.metadata.plotPoints || [])
-            .sort((a, b) => a.sequence - b.sequence)
-            .map((plotPoint) => (
-              <MetadataItem
-                key={plotPoint.id}
-                title={
-                  <Input
-                    value={plotPoint.title}
-                    onChange={(e) => updatePlotPoint(plotPoint.id, 'title', e.target.value)}
-                    className="border-0 bg-transparent px-0 text-base font-medium focus-visible:ring-0 focus-visible:ring-offset-0"
-                    placeholder="Plot point title"
-                  />
-                }
-                onRemove={() => {
-                  // Remove from list but don't delete
-                  const updatedPlotPoints = [...chapter.metadata.plotPoints].filter(
-                    pp => pp.id !== plotPoint.id
-                  );
-                  updateMetadata('plotPoints', updatedPlotPoints);
-                }}
-              >
-                <AiEnhancedTextarea
-                  value={plotPoint.description}
-                  onChange={(e) => updatePlotPoint(plotPoint.id, 'description', e.target.value)}
-                  placeholder="Describe this plot point..."
-                  className="min-h-[80px] border-0 bg-transparent focus-visible:ring-0 resize-none"
-                  aiScribeEnabled={aiScribeEnabled}
-                />
-              </MetadataItem>
-            ))}
+    <div className="space-y-4 p-4">
+      {/* Loading overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
+          <Loader2 className="h-8 w-8 animate-spin" />
         </div>
-        
-        <AddItemButton
-          label="Add Plot Point"
-          onClick={() => {
-            const title = prompt("Enter plot point title:");
-            if (title && title.trim()) {
-              addPlotPoint(title);
-            }
-          }}
-        />
-      </MetadataCard>
-
-      {/* Story Beats Card */}
-      <MetadataCard
-        title="Story Beats"
-        icon={<LayoutDashboard className="h-5 w-5 mr-2" />}
-        isExpanded={expandedCards.storyBeats}
-        onToggle={() => toggleCard('storyBeats')}
-      >
-        <AiEnhancedTextarea 
-          value={chapter.metadata.storyBeats} 
-          onChange={(e) => updateMetadata('storyBeats', e.target.value)}
-          placeholder="Enter the key story beats for this chapter..."
-          className="min-h-[200px] w-full"
-          aiScribeEnabled={aiScribeEnabled}
-        />
-      </MetadataCard>
-
-      {/* Notes Card */}
-      <MetadataCard
-        title="Notes"
-        icon={<FileText className="h-5 w-5 mr-2" />}
-        isExpanded={expandedCards.notes}
-        onToggle={() => toggleCard('notes')}
-      >
-        <AiEnhancedTextarea 
-          value={chapter.metadata.notes} 
-          onChange={(e) => updateMetadata('notes', e.target.value)}
-          placeholder="Additional notes for this chapter..."
-          className="min-h-24"
-          aiScribeEnabled={aiScribeEnabled}
-        />
-      </MetadataCard>
+      )}
       
       {/* Characters Card */}
       <MetadataCard
@@ -279,73 +539,21 @@ export function ChapterDetail({ chapter, onGoBack, onChapterUpdate, aiScribeEnab
         onToggle={() => toggleCard('characters')}
       >
         <div className="grid grid-cols-1 gap-4">
-          {chapter.metadata.characters.map((character, index) => (
-            <Card key={`character-${index}`} className="p-4">
-              <div className="flex items-start justify-between mb-4">
-                <div>
+          {chapter.connections.characters.map((character) => (
+            <Card key={character.id} className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
                   <h4 className="font-semibold">{character.name}</h4>
-                  {character.aliases.length > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      Also known as: {character.aliases.join(', ')}
-                    </p>
-                  )}
+                  {renderCharacterMetadata(character)}
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => {
-                    const updatedCharacters = [...chapter.metadata.characters];
-                    updatedCharacters.splice(index, 1);
-                    updateMetadata('characters', updatedCharacters);
-                  }}
+                  onClick={() => handleRemoveEntity(character.id)}
                 >
                   <X className="h-4 w-4" />
                 </Button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <h5 className="text-sm font-medium mb-2">Personality</h5>
-                  <div className="flex flex-wrap gap-2">
-                    {character.attributes.personality?.map((trait, i) => (
-                      <Badge key={i} variant="secondary">{trait}</Badge>
-                    )) || <span className="text-sm text-muted-foreground">No personality traits added</span>}
-                  </div>
-                </div>
-                
-                <div>
-                  <h5 className="text-sm font-medium mb-2">Appearance</h5>
-                  <div className="flex flex-wrap gap-2">
-                    {character.attributes.appearance?.map((trait, i) => (
-                      <Badge key={i} variant="secondary">{trait}</Badge>
-                    )) || <span className="text-sm text-muted-foreground">No appearance details added</span>}
-                  </div>
-                </div>
-                
-                <div>
-                  <h5 className="text-sm font-medium mb-2">Background</h5>
-                  <div className="flex flex-wrap gap-2">
-                    {character.attributes.background?.map((detail, i) => (
-                      <Badge key={i} variant="secondary">{detail}</Badge>
-                    )) || <span className="text-sm text-muted-foreground">No background details added</span>}
-                  </div>
-                </div>
-                
-                {character.relationships && character.relationships.length > 0 && (
-                  <div>
-                    <h5 className="text-sm font-medium mb-2">Relationships</h5>
-                    <div className="space-y-2">
-                      {character.relationships.map((rel, i) => (
-                        <div key={i} className="text-sm">
-                          <span className="font-medium">{rel.targetName}</span>
-                          <span className="text-muted-foreground"> - {rel.type}</span>
-                          <p className="text-sm text-muted-foreground">{rel.description}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </Card>
           ))}
@@ -353,13 +561,7 @@ export function ChapterDetail({ chapter, onGoBack, onChapterUpdate, aiScribeEnab
         
         <AddItemButton
           label="Add Character"
-          onClick={() => {
-            // Open a dialog or prompt for character name
-            const name = prompt("Enter character name:");
-            if (name && name.trim()) {
-              addCharacter(name);
-            }
-          }}
+          onClick={() => openSearchModal('character')}
         />
       </MetadataCard>
       
@@ -371,68 +573,21 @@ export function ChapterDetail({ chapter, onGoBack, onChapterUpdate, aiScribeEnab
         onToggle={() => toggleCard('settings')}
       >
         <div className="grid grid-cols-1 gap-4">
-          {chapter.metadata.settings.map((setting, index) => (
-            <Card key={`setting-${index}`} className="p-4">
-              <div className="flex items-start justify-between mb-4">
-                <div>
+          {chapter.connections.settings.map((setting) => (
+            <Card key={setting.id} className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
                   <h4 className="font-semibold">{setting.name}</h4>
-                  {setting.description && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {setting.description}
-                    </p>
-                  )}
+                  {renderSettingMetadata(setting)}
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => {
-                    const updatedSettings = [...chapter.metadata.settings];
-                    updatedSettings.splice(index, 1);
-                    updateMetadata('settings', updatedSettings);
-                  }}
+                  onClick={() => handleRemoveEntity(setting.id)}
                 >
                   <X className="h-4 w-4" />
                 </Button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <h5 className="text-sm font-medium mb-2">Type</h5>
-                  <Badge variant="outline">{setting.attributes.type || 'Unspecified'}</Badge>
-                </div>
-                
-                <div>
-                  <h5 className="text-sm font-medium mb-2">Features</h5>
-                  <div className="flex flex-wrap gap-2">
-                    {setting.attributes.features?.map((feature, i) => (
-                      <Badge key={i} variant="secondary">{feature}</Badge>
-                    )) || <span className="text-sm text-muted-foreground">No features added</span>}
-                  </div>
-                </div>
-                
-                <div>
-                  <h5 className="text-sm font-medium mb-2">Significance</h5>
-                  <div className="flex flex-wrap gap-2">
-                    {setting.attributes.significance?.map((item, i) => (
-                      <Badge key={i} variant="secondary">{item}</Badge>
-                    )) || <span className="text-sm text-muted-foreground">No significance details added</span>}
-                  </div>
-                </div>
-                
-                {setting.characterConnections && setting.characterConnections.length > 0 && (
-                  <div>
-                    <h5 className="text-sm font-medium mb-2">Character Connections</h5>
-                    <div className="space-y-2">
-                      {setting.characterConnections.map((conn, i) => (
-                        <div key={i} className="text-sm">
-                          <span className="font-medium">{conn.characterName}</span>
-                          <p className="text-sm text-muted-foreground">{conn.connection}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </Card>
           ))}
@@ -440,15 +595,179 @@ export function ChapterDetail({ chapter, onGoBack, onChapterUpdate, aiScribeEnab
         
         <AddItemButton
           label="Add Setting or Lore"
-          onClick={() => {
-            // Open a dialog or prompt for setting name
-            const name = prompt("Enter setting or lore element name:");
-            if (name && name.trim()) {
-              addSetting(name);
-            }
-          }}
+          onClick={() => openSearchModal('setting')}
         />
       </MetadataCard>
+      
+      {/* Plot Points Card */}
+      <MetadataCard
+        title="Plot Points"
+        icon={<BookOpen className="h-5 w-5 mr-2" />}
+        isExpanded={expandedCards.plotPoints}
+        onToggle={() => toggleCard('plotPoints')}
+      >
+        <div className="grid grid-cols-1 gap-4">
+          {chapter.connections.plotPoints.map((plotPoint) => (
+            <Card key={plotPoint.id} className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h4 className="font-semibold">{plotPoint.name}</h4>
+                  {renderPlotPointMetadata(plotPoint)}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleRemoveEntity(plotPoint.id)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+        
+        <AddItemButton
+          label="Add Plot Point"
+          onClick={() => openSearchModal('plotPoint')}
+        />
+      </MetadataCard>
+      
+      {/* Story Beats Card */}
+      <MetadataCard
+        title="Story Beats"
+        icon={<LayoutDashboard className="h-5 w-5 mr-2" />}
+        isExpanded={expandedCards.storyBeats}
+        onToggle={() => toggleCard('storyBeats')}
+      >
+        <div className="space-y-4">
+          {chapter.beats?.map((beat) => (
+            <Card key={beat.id} className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h4 className="font-semibold">{beat.title}</h4>
+                  <p className="text-sm text-muted-foreground mt-1">{beat.content}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleDeleteBeat(beat.id!)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </Card>
+          ))}
+
+          {isAddingBeat ? (
+            <Card className="p-4">
+              <div className="space-y-4">
+                <Input
+                  placeholder="Beat title..."
+                  value={newBeat.title}
+                  onChange={(e) => setNewBeat(prev => ({ ...prev, title: e.target.value }))}
+                />
+                <Textarea
+                  placeholder="Beat content..."
+                  value={newBeat.content}
+                  onChange={(e) => setNewBeat(prev => ({ ...prev, content: e.target.value }))}
+                  className="min-h-[100px]"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" onClick={() => setIsAddingBeat(false)}>Cancel</Button>
+                  <Button onClick={handleAddBeat}>Add Beat</Button>
+                </div>
+              </div>
+            </Card>
+          ) : (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setIsAddingBeat(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Beat
+            </Button>
+          )}
+        </div>
+      </MetadataCard>
+      
+      {/* Notes Card */}
+      <MetadataCard
+        title="Notes"
+        icon={<StickyNote className="h-5 w-5 mr-2" />}
+        isExpanded={expandedCards.notes}
+        onToggle={() => toggleCard('notes')}
+      >
+        <div className="space-y-4">
+          {chapter.notes?.map((note) => (
+            <Card key={note.id} className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h4 className="font-semibold">{note.title}</h4>
+                  <p className="text-sm text-muted-foreground mt-1">{note.content}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleDeleteNote(note.id!)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </Card>
+          ))}
+
+          {isAddingNote ? (
+            <Card className="p-4">
+              <div className="space-y-4">
+                <Input
+                  placeholder="Note title..."
+                  value={newNote.title}
+                  onChange={(e) => setNewNote(prev => ({ ...prev, title: e.target.value }))}
+                />
+                <Textarea
+                  placeholder="Note content..."
+                  value={newNote.content}
+                  onChange={(e) => setNewNote(prev => ({ ...prev, content: e.target.value }))}
+                  className="min-h-[100px]"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" onClick={() => setIsAddingNote(false)}>Cancel</Button>
+                  <Button onClick={handleAddNote}>Add Note</Button>
+                </div>
+              </div>
+            </Card>
+          ) : (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setIsAddingNote(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Note
+            </Button>
+          )}
+        </div>
+      </MetadataCard>
+      
+      {/* Search Modal */}
+      {searchModal && (
+        <EntitySearchModal
+          isOpen={searchModal.isOpen}
+          onClose={closeSearchModal}
+          onSelect={handleAddEntity}
+          projectId={projectId}
+          entityType={searchModal.type}
+          title={
+            searchModal.type === 'character' ? 'Character' :
+            searchModal.type === 'setting' ? 'Setting or Lore' :
+            'Plot Point'
+          }
+        />
+      )}
     </div>
   );
-} 
+}

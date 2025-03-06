@@ -3,22 +3,27 @@
 import { useState, useEffect } from 'react';
 import { ChapterList } from './chapter-list';
 import { ChapterDetail } from './chapter-detail';
-import { Chapter, ChapterMetadata } from './chapter-types';
 import { ArrowLeft, BookText } from 'lucide-react';
 import { Button } from '../ui/button';
+import { ChapterWithRelationships } from '@/lib/db/types';
+import { getChapterWithRelationships, createChapter, getProjectChapters } from '@/lib/db/chapters';
 
 export interface ChapterSidebarProps {
+  projectId: string;
   activeChapterId: string | null;
   setActiveChapterId: (id: string | null) => void;
   onViewModeChange?: (mode: 'list' | 'detail') => void;
   aiScribeEnabled?: boolean;
+  textEditor?: React.ReactNode;
 }
 
 export function ChapterSidebar({ 
+  projectId,
   activeChapterId, 
   setActiveChapterId,
   onViewModeChange,
-  aiScribeEnabled = true
+  aiScribeEnabled = true,
+  textEditor
 }: ChapterSidebarProps) {
   // State for view mode (list or detail)
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
@@ -26,198 +31,100 @@ export function ChapterSidebar({
   // Animation state - helps with cleanup after animation
   const [isAnimating, setIsAnimating] = useState(false);
   
+  // Loading state
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Chapters state
+  const [chapters, setChapters] = useState<ChapterWithRelationships[]>([]);
+
+  // Check if this is a sample project
+  const isSampleProject = projectId.startsWith('project-');
+  
+  // Load chapters on mount and after operations
+  const loadChapters = async () => {
+    console.log('Loading chapters for project:', projectId);
+    setIsLoading(true);
+    try {
+      if (isSampleProject) {
+        // Use mock data for sample projects
+        const mockChapters: ChapterWithRelationships[] = [
+          {
+            id: 'chapter-1',
+            projectId,
+            title: 'Chapter 1: The Beginning',
+            order: 0,
+            content: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            connections: {
+              characters: [],
+              settings: [],
+              plotPoints: [],
+            }
+          },
+          {
+            id: 'chapter-2',
+            projectId,
+            title: 'Chapter 2: The Journey',
+            order: 1,
+            content: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            connections: {
+              characters: [],
+              settings: [],
+              plotPoints: [],
+            }
+          },
+          {
+            id: 'chapter-3',
+            projectId,
+            title: 'Chapter 3: The Revelation',
+            order: 2,
+            content: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            connections: {
+              characters: [],
+              settings: [],
+              plotPoints: [],
+            }
+          }
+        ];
+        setChapters(mockChapters);
+      } else {
+        // Load real data from Firestore
+        const projectChapters = await getProjectChapters(projectId);
+        console.log('Fetched project chapters:', projectChapters);
+        
+        const chaptersWithRelationships = await Promise.all(
+          projectChapters.map(async chapter => {
+            console.log('Fetching relationships for chapter:', chapter.id);
+            return getChapterWithRelationships(chapter.id);
+          })
+        );
+        console.log('Chapters with relationships:', chaptersWithRelationships);
+        
+        setChapters(chaptersWithRelationships);
+      }
+    } catch (error) {
+      console.error('Error loading chapters:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    console.log('ChapterSidebar mounted with projectId:', projectId);
+    loadChapters();
+  }, [projectId]);
+  
   // Notify parent component when view mode changes
   useEffect(() => {
     if (onViewModeChange) {
       onViewModeChange(viewMode);
     }
   }, [viewMode, onViewModeChange]);
-  
-  // Sample initial metadata
-  const defaultMetadata: ChapterMetadata = {
-    storyBeats: '',
-    characters: [],
-    settings: [],
-    plotPoints: [],
-    notes: ''
-  };
-  
-  // Sample chapters data
-  const [chapters, setChapters] = useState<Chapter[]>([
-    {
-      id: '1',
-      title: 'Chapter 1: The Beginning',
-      order: 1,
-      metadata: {
-        storyBeats: 'Introduction to the main character and their ordinary world.',
-        characters: [
-          {
-            name: 'Main Character',
-            aliases: ['MC', 'Hero'],
-            attributes: {
-              personality: ['Determined', 'Curious'],
-              appearance: ['Tall', 'Dark hair'],
-              background: ['Orphaned at young age']
-            },
-            relationships: []
-          }
-        ],
-        settings: [
-          {
-            name: 'Small Town',
-            description: 'A quiet town where nothing exciting happens',
-            attributes: {
-              type: 'Rural Setting',
-              features: ['Main Street', 'Town Square'],
-              significance: ['Character\'s hometown'],
-              associatedCharacters: ['Main Character']
-            },
-            characterConnections: []
-          }
-        ],
-        plotPoints: [
-          {
-            id: 'plot-1',
-            title: 'Main character introduced',
-            description: "We meet the protagonist in their ordinary world, establishing their normal life before the adventure begins.",
-            sequence: 0
-          }
-        ],
-        notes: 'This chapter sets up the main conflict of the story.'
-      }
-    },
-    {
-      id: '2',
-      title: 'Chapter 2: The Journey Begins',
-      order: 2,
-      metadata: {
-        storyBeats: 'The protagonist leaves their comfort zone and embarks on a journey.',
-        characters: [
-          {
-            name: 'Mentor',
-            aliases: ['Guide', 'Wise One'],
-            attributes: {
-              personality: ['Wise', 'Patient'],
-              appearance: ['Elderly', 'White beard'],
-              background: ['Former adventurer']
-            },
-            relationships: [
-              {
-                targetName: 'Main Character',
-                type: 'Mentor',
-                description: 'Guides the main character on their journey'
-              }
-            ]
-          }
-        ],
-        settings: [
-          {
-            name: 'The Road',
-            description: 'The long road leading away from town',
-            attributes: {
-              type: 'Journey Setting',
-              features: ['Winding path', 'Forest edge'],
-              significance: ['First step of adventure'],
-              associatedCharacters: ['Main Character', 'Mentor']
-            },
-            characterConnections: []
-          }
-        ],
-        plotPoints: [
-          {
-            id: 'plot-4',
-            title: 'Protagonist leaves home',
-            description: "The main character decides to leave their familiar surroundings and venture into the unknown.",
-            sequence: 0
-          },
-          {
-            id: 'plot-5',
-            title: 'Meeting the mentor',
-            description: "The protagonist encounters someone who provides guidance, wisdom, or tools for the journey ahead.",
-            sequence: 1
-          },
-          {
-            id: 'plot-6',
-            title: 'First challenge faced',
-            description: "The protagonist faces their first significant obstacle or test in the new world.",
-            sequence: 2
-          }
-        ],
-        notes: 'Focus on the emotional state of the protagonist as they leave familiar surroundings.'
-      }
-    },
-    {
-      id: '3',
-      title: 'Chapter 3: New Allies',
-      order: 3,
-      metadata: {
-        storyBeats: 'The protagonist meets new allies who will help them on their journey.',
-        characters: [
-          {
-            name: 'Sidekick',
-            aliases: ['Friend', 'Companion'],
-            attributes: {
-              personality: ['Loyal', 'Humorous'],
-              appearance: ['Short', 'Agile'],
-              background: ['Escaped from captivity']
-            },
-            relationships: [
-              {
-                targetName: 'Main Character',
-                type: 'Friend',
-                description: 'Loyal companion who provides comic relief'
-              }
-            ]
-          }
-        ],
-        settings: [
-          {
-            name: 'Tavern',
-            description: 'A bustling tavern where travelers meet',
-            attributes: {
-              type: 'Social Setting',
-              features: ['Crowded bar', 'Private booths'],
-              significance: ['Meeting place for allies'],
-              associatedCharacters: ['Main Character', 'Sidekick']
-            },
-            characterConnections: []
-          },
-          {
-            name: 'Ancient Prophecy',
-            description: 'A prophecy that foretells the coming of a hero',
-            attributes: {
-              type: 'Lore Element',
-              features: ['Written in ancient language', 'Partially destroyed'],
-              significance: ['Motivates the quest', 'Creates mystery'],
-              associatedCharacters: ['Main Character', 'Mentor']
-            },
-            characterConnections: []
-          }
-        ],
-        plotPoints: [
-          {
-            id: 'plot-7',
-            title: 'New allies introduced',
-            description: "The protagonist meets important characters who will help them throughout the story.",
-            sequence: 0
-          },
-          {
-            id: 'plot-8',
-            title: 'Team dynamics established',
-            description: "The relationships and roles within the group are defined, setting up future interactions.",
-            sequence: 1
-          },
-          {
-            id: 'plot-9',
-            title: 'Secondary conflict emerges',
-            description: "A new problem or antagonistic force is revealed, complicating the protagonist's journey.",
-            sequence: 2
-          }
-        ],
-        notes: 'Develop the relationships between the protagonist and their new allies.'
-      }
-    }
-  ]);
   
   // Handle chapter selection (show detail view)
   const handleChapterSelect = (id: string) => {
@@ -233,45 +140,92 @@ export function ChapterSidebar({
   };
   
   // Find the active chapter
-  const getActiveChapter = (): Chapter | undefined => {
+  const getActiveChapter = (): ChapterWithRelationships | undefined => {
     return chapters.find(chapter => chapter.id === activeChapterId);
   };
   
-  // Update a specific chapter
-  const updateChapter = (updatedChapter: Chapter) => {
-    const updatedChapters = chapters.map(chapter => 
-      chapter.id === updatedChapter.id ? updatedChapter : chapter
-    );
+  // Update chapters state
+  const handleChaptersChange = async (updatedChapters: ChapterWithRelationships[]) => {
     setChapters(updatedChapters);
-  };
-
-  // Add a new chapter
-  const addChapter = () => {
-    const newChapter: Chapter = {
-      id: `${Date.now()}`,
-      title: `New Chapter ${chapters.length + 1}`,
-      order: chapters.length,
-      metadata: {
-        storyBeats: '',
-        characters: [],
-        settings: [],
-        plotPoints: [],
-        notes: ''
-      }
-    };
-    
-    const updatedChapters = [...chapters, newChapter];
-    setChapters(updatedChapters);
-    setActiveChapterId(newChapter.id);
-    setViewMode('detail');
   };
   
+  // Handle chapter operations
+  const handleChapterCreate = async () => {
+    if (isSampleProject) {
+      // For sample projects, just add a new mock chapter
+      const newChapter: ChapterWithRelationships = {
+        id: `chapter-${chapters.length + 1}`,
+        projectId,
+        title: `Chapter ${chapters.length + 1}`,
+        order: chapters.length,
+        content: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        connections: {
+          characters: [],
+          settings: [],
+          plotPoints: [],
+        }
+      };
+      setChapters([...chapters, newChapter]);
+    } else {
+      // For real projects, use Firestore
+      await loadChapters();
+    }
+  };
+  
+  const handleChapterDelete = async () => {
+    if (isSampleProject) {
+      // For sample projects, just filter out the chapter
+      if (activeChapterId) {
+        setChapters(chapters.filter(chapter => chapter.id !== activeChapterId));
+        setActiveChapterId(null);
+        setViewMode('list');
+      }
+    } else {
+      // For real projects, use Firestore
+      if (activeChapterId) {
+        setActiveChapterId(null);
+        setViewMode('list');
+      }
+      await loadChapters();
+    }
+  };
+  
+  // Update a specific chapter
+  const updateChapter = async (updatedChapter: ChapterWithRelationships) => {
+    console.log('Updating chapter:', updatedChapter);
+    if (isSampleProject) {
+      const updatedChapters = chapters.map(chapter => 
+        chapter.id === updatedChapter.id ? updatedChapter : chapter
+      );
+      setChapters(updatedChapters);
+    } else {
+      // For real projects, update in Firestore and refresh
+      await loadChapters();
+    }
+  };
+
+  // Handle chapter title update
+  const handleChapterTitleUpdate = async (chapterId: string, newTitle: string) => {
+    const chapterToUpdate = chapters.find(c => c.id === chapterId);
+    if (!chapterToUpdate) return;
+
+    const updatedChapter = {
+      ...chapterToUpdate,
+      title: newTitle,
+      updatedAt: new Date()
+    };
+
+    await updateChapter(updatedChapter);
+  };
+
   // Get the active chapter title
   const getActiveChapterTitle = (): string => {
     const activeChapter = getActiveChapter();
-    return activeChapter ? activeChapter.title : "Chapter Details";
+    return activeChapter?.title || "Chapter Details";
   };
-
+  
   // Handle transition end to clean up animation state
   const handleAnimationEnd = () => {
     setIsAnimating(false);
@@ -283,30 +237,29 @@ export function ChapterSidebar({
       <div className="border-b p-4 flex items-center">
         {viewMode === 'detail' ? (
           <div className="flex items-center w-full">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+            <Button 
+              variant="ghost" 
+              size="icon" 
               onClick={handleGoBackToList}
               className="mr-2 flex-shrink-0"
               aria-label="Back to all chapters"
             >
               <ArrowLeft className="h-4 w-4" />
-                  </Button>
+            </Button>
             <div className="relative overflow-hidden max-w-[calc(100%-40px)]">
               <h2 className="text-lg font-semibold whitespace-nowrap overflow-hidden">
                 {getActiveChapterTitle()}
               </h2>
-              <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent"></div>
             </div>
-                      </div>
-                    ) : (
+          </div>
+        ) : (
           <div className="flex items-center pl-2">
             <BookText className="h-5 w-5 mr-2 text-primary" />
             <h2 className="text-lg font-semibold">All Chapters</h2>
           </div>
-                    )}
-                  </div>
-                  
+        )}
+      </div>
+      
       {/* Content Area with Animation */}
       <div className="flex-1 relative">
         {/* List View */}
@@ -318,38 +271,32 @@ export function ChapterSidebar({
         >
           <ChapterList
             chapters={chapters}
+            projectId={projectId}
             activeChapterId={activeChapterId}
             onChapterSelect={handleChapterSelect}
-            onChaptersChange={setChapters}
+            onChaptersChange={handleChaptersChange}
+            onChapterCreate={handleChapterCreate}
+            onChapterDelete={handleChapterDelete}
+            isLoading={isLoading}
           />
-                </div>
+        </div>
         
         {/* Detail View */}
         <div 
           className={`absolute inset-0 w-full h-full transition-transform duration-300 ease-in-out ${
-            viewMode === 'list' ? 'translate-x-full' : 'translate-x-0'
+            viewMode === 'detail' ? 'translate-x-0' : 'translate-x-full'
           }`}
-          onTransitionEnd={handleAnimationEnd}
         >
-          {(viewMode === 'detail' || isAnimating) && activeChapterId && getActiveChapter() ? (
+          {activeChapterId && getActiveChapter() ? (
             <ChapterDetail
               chapter={getActiveChapter()!}
+              projectId={projectId}
               onGoBack={handleGoBackToList}
               onChapterUpdate={updateChapter}
               aiScribeEnabled={aiScribeEnabled}
             />
-          ) : (
-            <div className="p-4 text-center">
-              No chapter selected. 
-              <button 
-                className="text-primary hover:underline ml-2" 
-                onClick={handleGoBackToList}
-              >
-                Go back to list
-              </button>
-              </div>
-            )}
-          </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );
