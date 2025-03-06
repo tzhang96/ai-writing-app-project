@@ -18,6 +18,13 @@
   box-shadow: none;
 }
 
+/* Highlight styles */
+.tiptap-editor-container .ProseMirror .highlight-gray {
+  background-color: rgba(125, 125, 125, 0.3);
+  border-radius: 2px;
+  padding: 1px 0;
+}
+
 .tiptap-editor-container .ProseMirror p {
   margin-bottom: 1rem;
 }

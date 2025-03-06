@@ -17,6 +17,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 // Create a shared context for popup state management
 type PopupType = 'none' | 'scribe' | 'write';
@@ -53,6 +54,7 @@ interface AiScribePopupProps {
     end: number;
     restoreSelection: () => void;
   };
+  className?: string;
 }
 
 // Shared hook for popup positioning
@@ -105,14 +107,21 @@ function useClickOutside(
       if (popupRef.current && 
           !popupRef.current.contains(e.target as Node) && 
           (!selectionInfo || e.target !== selectionInfo.textarea)) {
+        // Add console log
+        console.log('Click outside detected in useClickOutside', {
+          hasRef: Boolean(popupRef.current),
+          isTargetContained: popupRef.current?.contains(e.target as Node),
+          hasSelectionInfo: Boolean(selectionInfo)
+        });
         onClose();
       }
     };
     
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    // Remove this handler as it's redundant with our editor's handlers
+    // document.addEventListener('mousedown', handleClickOutside);
+    // return () => {
+    //   document.removeEventListener('mousedown', handleClickOutside);
+    // };
   }, [onClose, selectionInfo, popupRef]);
 }
 
@@ -121,7 +130,8 @@ export function AiScribePopup({
   position, 
   onAction, 
   onClose,
-  selectionInfo 
+  selectionInfo,
+  className 
 }: AiScribePopupProps) {
   const [instructions, setInstructions] = useState('');
   const popupRef = useRef<HTMLDivElement>(null);
@@ -140,13 +150,15 @@ export function AiScribePopup({
     <TooltipProvider>
       <div 
         ref={popupRef}
-        className="fixed z-[100] shadow-lg rounded-lg bg-background border scribe-popup"
+        className={cn("fixed z-[100] shadow-lg rounded-lg bg-background border scribe-popup", className)}
         style={{ 
           top: `${position.top}px`, 
           left: `${position.left}px`,
           width: '250px',
-          transform: isPositionedAbove ? 'translate(0, -15px)' : 'translate(0, 5px)'
+          transform: isPositionedAbove ? 'translateY(-100%)' : 'none',
+          marginTop: isPositionedAbove ? '-8px' : '8px',
         }}
+        data-testid="ai-scribe-popup"
       >
         <div className="p-3">
           <div className="grid grid-cols-2 gap-1.5 mb-3">
@@ -235,9 +247,10 @@ interface AiWritePopupProps {
   position: { top: number; left: number };
   onWrite: (instructions?: string) => void;
   onClose: () => void;
+  className?: string;
 }
 
-export function AiWritePopup({ position, onWrite, onClose }: AiWritePopupProps) {
+export function AiWritePopup({ position, onWrite, onClose, className }: AiWritePopupProps) {
   const [instructions, setInstructions] = useState('');
   const popupRef = useRef<HTMLDivElement>(null);
   
@@ -248,126 +261,41 @@ export function AiWritePopup({ position, onWrite, onClose }: AiWritePopupProps) 
   useClickOutside(popupRef, onClose);
   
   const handleWrite = () => {
-    onWrite(instructions);
+    onWrite(instructions.trim() || undefined);
   };
   
   return (
-    <TooltipProvider>
-      <div 
-        ref={popupRef}
-        className="fixed z-[100] shadow-lg rounded-lg bg-background border write-popup"
-        style={{ 
-          top: `${position.top}px`, 
-          left: `${position.left}px`,
-          width: '250px',
-          transform: isPositionedAbove ? 'translate(0, -15px)' : 'translate(0, 20px)'
-        }}
-      >
-        <div className="p-3">
-          <div className="flex flex-col gap-2">
-            <Button 
-              size="sm" 
-              variant="secondary"
-              className="h-7 text-xs px-3 py-0 whitespace-nowrap flex items-center justify-center gap-1 w-full"
-              onClick={handleWrite}
-            >
-              <Wand2 className="h-3.5 w-3.5" />
-              <span>AI Write</span>
-            </Button>
-            <Input 
-              placeholder="Additional Instructions (optional)"
-              className="text-xs h-7"
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-            />
-          </div>
-        </div>
+    <div 
+      ref={popupRef}
+      className={cn("fixed z-[100] shadow-lg rounded-lg bg-background border p-3 write-popup", className)}
+      style={{ 
+        top: `${position.top}px`, 
+        left: `${position.left}px`,
+        width: '250px',
+        transform: isPositionedAbove ? 'translateY(-100%)' : 'none',
+        marginTop: isPositionedAbove ? '-8px' : '8px',
+      }}
+      data-testid="ai-write-popup"
+    >
+      <div className="flex flex-col gap-2">
+        <Button 
+          size="sm" 
+          variant="secondary"
+          className="h-7 text-xs px-3 py-0 whitespace-nowrap flex items-center justify-center gap-1 w-full"
+          onClick={handleWrite}
+        >
+          <Wand2 className="h-3.5 w-3.5" />
+          <span>AI Write</span>
+        </Button>
+        <Input 
+          placeholder="Additional Instructions (optional)"
+          className="text-xs h-7"
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+        />
       </div>
-    </TooltipProvider>
+    </div>
   );
-}
-
-// Shared hook for creating a text selection overlay
-function useSelectionOverlay(
-  showOverlay: boolean,
-  textareaRef: React.RefObject<HTMLTextAreaElement>,
-  selectionRange: React.MutableRefObject<{start: number, end: number} | null>
-) {
-  useEffect(() => {
-    if (!showOverlay || !textareaRef.current || !selectionRange.current) return;
-    
-    const textarea = textareaRef.current;
-    const { start, end } = selectionRange.current;
-    
-    // Create a highlight element to overlay on the textarea
-    const highlightOverlay = document.createElement('div');
-    highlightOverlay.className = 'selection-highlight-overlay';
-    highlightOverlay.style.position = 'absolute';
-    highlightOverlay.style.pointerEvents = 'none'; // Don't interfere with textarea interaction
-    highlightOverlay.style.zIndex = '1'; // Above textarea but below popup
-    
-    // Get textarea's styles and position
-    const textareaRect = textarea.getBoundingClientRect();
-    const textareaStyles = window.getComputedStyle(textarea);
-    
-    // Make the overlay match the textarea exactly
-    highlightOverlay.style.top = `${textareaRect.top + window.scrollY}px`;
-    highlightOverlay.style.left = `${textareaRect.left + window.scrollX}px`;
-    highlightOverlay.style.width = `${textareaRect.width}px`;
-    highlightOverlay.style.height = `${textareaRect.height}px`;
-    highlightOverlay.style.padding = textareaStyles.padding;
-    highlightOverlay.style.border = 'none';
-    highlightOverlay.style.overflow = 'hidden';
-    
-    // Create elements for the content
-    const beforeContent = document.createElement('span');
-    beforeContent.textContent = textarea.value.substring(0, start);
-    beforeContent.style.whiteSpace = 'pre-wrap';
-    
-    const highlightedContent = document.createElement('span');
-    highlightedContent.textContent = textarea.value.substring(start, end);
-    highlightedContent.style.whiteSpace = 'pre-wrap';
-    highlightedContent.style.backgroundColor = 'rgba(125, 125, 125, 0.3)'; // Grey semi-transparent
-    highlightedContent.style.borderRadius = '2px';
-    
-    const afterContent = document.createElement('span');
-    afterContent.textContent = textarea.value.substring(end);
-    afterContent.style.whiteSpace = 'pre-wrap';
-    
-    // Append the parts to the overlay
-    highlightOverlay.appendChild(beforeContent);
-    highlightOverlay.appendChild(highlightedContent);
-    highlightOverlay.appendChild(afterContent);
-    
-    // Style the overlay to match the textarea
-    highlightOverlay.style.fontFamily = textareaStyles.fontFamily;
-    highlightOverlay.style.fontSize = textareaStyles.fontSize;
-    highlightOverlay.style.lineHeight = textareaStyles.lineHeight;
-    highlightOverlay.style.color = 'transparent'; // Make text invisible
-    highlightOverlay.style.backgroundColor = 'transparent';
-    
-    // Add overlay to the document
-    document.body.appendChild(highlightOverlay);
-    
-    // Update the highlight position when textarea scrolls
-    const handleScroll = () => {
-      const updatedRect = textarea.getBoundingClientRect();
-      highlightOverlay.style.top = `${updatedRect.top + window.scrollY}px`;
-      highlightOverlay.style.left = `${updatedRect.left + window.scrollX}px`;
-    };
-    
-    textarea.addEventListener('scroll', handleScroll);
-    window.addEventListener('scroll', handleScroll);
-    window.addEventListener('resize', handleScroll);
-    
-    // Clean up
-    return () => {
-      document.body.removeChild(highlightOverlay);
-      textarea.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleScroll);
-    };
-  }, [showOverlay, textareaRef, selectionRange]);
 }
 
 export function useAiScribe(textareaRef: React.RefObject<HTMLTextAreaElement>, aiScribeEnabled: boolean) {
@@ -381,6 +309,12 @@ export function useAiScribe(textareaRef: React.RefObject<HTMLTextAreaElement>, a
   // Track if we're interacting with the popup
   const isInteractingWithPopup = useRef(false);
   
+  // Track if popup was just closed by a document click
+  const wasJustClosed = useRef(false);
+  
+  // Track last mousedown position to detect clicks on highlights
+  const lastMouseDownPosition = useRef<{x: number, y: number} | null>(null);
+  
   // Listen for popup state changes
   useEffect(() => {
     const unsubscribe = addPopupStateListener(() => {
@@ -390,9 +324,6 @@ export function useAiScribe(textareaRef: React.RefObject<HTMLTextAreaElement>, a
     });
     return unsubscribe;
   }, []);
-  
-  // Use shared selection overlay hook
-  useSelectionOverlay(showAiPopup, textareaRef, selectionRange);
   
   // Restore selection in the textarea
   const restoreSelection = () => {
@@ -424,14 +355,49 @@ export function useAiScribe(textareaRef: React.RefObject<HTMLTextAreaElement>, a
     return undefined;
   };
   
-  const handleTextSelection = () => {
-    if (!aiScribeEnabled) return;
+  const handleTextSelection = (e?: MouseEvent) => {
+    console.log('handleTextSelection called', e ? { x: e.clientX, y: e.clientY } : 'no event');
+    
+    // Clear the "just closed" flag whenever a new text selection event happens
+    wasJustClosed.current = false;
+    
+    if (!aiScribeEnabled) {
+      console.log('AI Scribe not enabled');
+      return;
+    }
     
     const textarea = textareaRef.current;
-    if (!textarea) return;
+    if (!textarea) {
+      console.log('No textarea reference');
+      return;
+    }
     
     // Skip if we're currently interacting with the popup
-    if (isInteractingWithPopup.current) return;
+    if (isInteractingWithPopup.current) {
+      console.log('Currently interacting with popup');
+      return;
+    }
+    
+    // If mousedown and mouseup are at approximately the same position,
+    // this is likely a click rather than a drag to select text.
+    // In this case, we should not show the scribe popup.
+    if (e && lastMouseDownPosition.current) {
+      const mouseDownPos = lastMouseDownPosition.current;
+      const dx = Math.abs(mouseDownPos.x - e.clientX);
+      const dy = Math.abs(mouseDownPos.y - e.clientY);
+      
+      // If the mouse barely moved (within 5 pixels), treat as a click, not a selection
+      if (dx < 5 && dy < 5) {
+        console.log('Detected click on highlight, not showing scribe popup');
+        selectionRange.current = null;
+        // Reset the last mousedown position
+        lastMouseDownPosition.current = null;
+        return;
+      }
+    }
+    
+    // Reset the last mousedown position
+    lastMouseDownPosition.current = null;
     
     // Delay the check slightly to ensure we're reading the final selection state after the mouseup
     setTimeout(() => {
@@ -439,73 +405,132 @@ export function useAiScribe(textareaRef: React.RefObject<HTMLTextAreaElement>, a
       const end = textarea.selectionEnd;
       const selectedTextValue = textarea.value.substring(start, end);
       
+      console.log('Selection check:', { 
+        start, 
+        end, 
+        text: selectedTextValue,
+        hasText: Boolean(selectedTextValue && selectedTextValue.trim().length > 0)
+      });
+      
       if (selectedTextValue && selectedTextValue.trim().length > 0) {
+        console.log('Text selected, showing popup');
+        
         // Store the selection range for persistence
         selectionRange.current = { start, end };
         
-        // Get the textarea's position and the selection coordinates
-        const textareaRect = textarea.getBoundingClientRect();
+        // Get position from mouse event if available, otherwise calculate from text
+        let popupX = 0;
+        let popupY = 0;
         
-        // Create a range to measure where the selection is
-        const textBeforeSelection = textarea.value.substring(0, start);
-        
-        // Create a temporary element to measure text dimensions
-        const tempElement = document.createElement('div');
-        tempElement.style.position = 'absolute';
-        tempElement.style.visibility = 'hidden';
-        tempElement.style.whiteSpace = 'pre-wrap';
-        tempElement.style.width = `${textareaRect.width}px`;
-        tempElement.style.fontSize = window.getComputedStyle(textarea).fontSize;
-        tempElement.style.lineHeight = window.getComputedStyle(textarea).lineHeight;
-        tempElement.style.fontFamily = window.getComputedStyle(textarea).fontFamily;
-        tempElement.style.padding = window.getComputedStyle(textarea).padding;
-        
-        // Add the text before selection and a span for the selection
-        tempElement.innerHTML = textBeforeSelection.replace(/\n/g, '<br>') + 
-                              '<span id="selection">' + 
-                              selectedTextValue.replace(/\n/g, '<br>') + 
-                              '</span>';
-        
-        document.body.appendChild(tempElement);
-        
-        // Get the position of the selection span
-        const selectionSpan = tempElement.querySelector('#selection');
-        if (selectionSpan) {
-          const selectionRect = selectionSpan.getBoundingClientRect();
+        if (e) {
+          // Use the mouse event position with a small offset
+          const OFFSET_X = 10; // pixels right of cursor
+          const OFFSET_Y = 15; // pixels below cursor
           
-          // Calculate the position for the popup
-          const top = textareaRect.top + selectionRect.top - tempElement.getBoundingClientRect().top + selectionRect.height;
-          const left = textareaRect.left + selectionRect.left - tempElement.getBoundingClientRect().left;
+          popupX = e.clientX + OFFSET_X + window.scrollX;
+          popupY = e.clientY + OFFSET_Y + window.scrollY;
           
-          setSelectedText(selectedTextValue);
-          setPopupPosition({
-            top: top + window.scrollY,
-            left: left + window.scrollX
-          });
-          setShowAiPopup(true);
-          // Update popup state to 'scribe' to close any other popups
-          popupState.setPopupType('scribe');
+          console.log('Using mouse position for popup:', { x: popupX, y: popupY });
+        } else {
+          // Fallback to text-based calculation
+          console.log('No mouse event, using text-based calculation for popup position');
+          
+          // Get the textarea's position and the selection coordinates
+          const textareaRect = textarea.getBoundingClientRect();
+          
+          // Create a range to measure where the selection is
+          const textBeforeSelection = textarea.value.substring(0, start);
+          
+          // Create a temporary element to measure text dimensions
+          const tempElement = document.createElement('div');
+          tempElement.style.position = 'absolute';
+          tempElement.style.visibility = 'hidden';
+          tempElement.style.whiteSpace = 'pre-wrap';
+          tempElement.style.width = `${textareaRect.width}px`;
+          tempElement.style.fontSize = window.getComputedStyle(textarea).fontSize;
+          tempElement.style.lineHeight = window.getComputedStyle(textarea).lineHeight;
+          tempElement.style.fontFamily = window.getComputedStyle(textarea).fontFamily;
+          tempElement.style.padding = window.getComputedStyle(textarea).padding;
+          
+          // Add the text before selection and a span for the selection
+          tempElement.innerHTML = textBeforeSelection.replace(/\n/g, '<br>') + 
+                                '<span id="selection">' + 
+                                selectedTextValue.replace(/\n/g, '<br>') + 
+                                '</span>';
+          
+          document.body.appendChild(tempElement);
+          
+          // Get the position of the selection span
+          const selectionSpan = tempElement.querySelector('#selection');
+          if (selectionSpan) {
+            const selectionRect = selectionSpan.getBoundingClientRect();
+            
+            // Calculate the position for the popup
+            popupY = textareaRect.top + selectionRect.top - tempElement.getBoundingClientRect().top + selectionRect.height + window.scrollY;
+            popupX = textareaRect.left + selectionRect.left - tempElement.getBoundingClientRect().left + window.scrollX;
+          }
+          
+          // Clean up
+          document.body.removeChild(tempElement);
         }
         
-        // Clean up
-        document.body.removeChild(tempElement);
+        setSelectedText(selectedTextValue);
+        setPopupPosition({
+          top: popupY,
+          left: popupX
+        });
+        
+        console.log('Setting showAiPopup to true');
+        setShowAiPopup(true);
+        // Update popup state to 'scribe' to close any other popups
+        popupState.setPopupType('scribe');
       } else if (!isInteractingWithPopup.current) {
+        console.log('No text selected');
         selectionRange.current = null;
-        setShowAiPopup(false);
+        // Don't close popup here - let document clicks handle this
       }
     }, 10); // Small delay to ensure correct selection state
   };
   
   // Set up mouseup events for text selection
   useEffect(() => {
-    if (aiScribeEnabled) {
-      document.addEventListener('mouseup', handleTextSelection);
-    }
+    if (!aiScribeEnabled) return;
+    
+    console.log('Setting up mouseup event for AI Scribe');
+    
+    // Track mousedown to detect clicks on highlights
+    const handleDocumentMouseDown = (e: MouseEvent) => {
+      // Store the mousedown position to compare with mouseup
+      lastMouseDownPosition.current = { x: e.clientX, y: e.clientY };
+      
+      const target = e.target as Node;
+      const popupElement = document.querySelector('.scribe-popup');
+      
+      // If clicking outside the popup
+      if (popupElement && !popupElement.contains(target)) {
+        console.log('Document mousedown outside popup');
+        wasJustClosed.current = true;
+        // Close popup on mousedown, not waiting for mouseup
+        if (showAiPopup) {
+          closePopup();
+        }
+      }
+    };
+    
+    // Set up mouseup listener on document for text selection
+    const handleMouseUp = (e: MouseEvent) => {
+      // Pass the mouse event to handleTextSelection for position calculation
+      handleTextSelection(e);
+    };
+    
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousedown', handleDocumentMouseDown);
     
     return () => {
-      document.removeEventListener('mouseup', handleTextSelection);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousedown', handleDocumentMouseDown);
     };
-  }, [aiScribeEnabled]);
+  }, [aiScribeEnabled, showAiPopup]);
   
   const handleAiAction = (action: 'expand' | 'summarize' | 'rephrase' | 'revise', instructions?: string) => {
     // Here we would integrate with the AI to process the selected text
@@ -518,9 +543,12 @@ export function useAiScribe(textareaRef: React.RefObject<HTMLTextAreaElement>, a
   };
   
   const closePopup = () => {
+    console.log('Closing AI popup');
     setShowAiPopup(false);
     popupState.setPopupType('none');
     selectionRange.current = null;
+    // Ensure we don't reopen immediately
+    wasJustClosed.current = true;
   };
   
   return {
@@ -536,23 +564,20 @@ export function useAiScribe(textareaRef: React.RefObject<HTMLTextAreaElement>, a
 export function useAiWrite(textareaRef: React.RefObject<HTMLTextAreaElement>, aiScribeEnabled: boolean) {
   const [showWritePopup, setShowWritePopup] = useState(false);
   const [cursorPosition, setCursorPosition] = useState({ top: 0, left: 0 });
-  const cursorIndex = useRef<number | null>(null);
-  
-  // Track if the popup is already shown to prevent duplicates
-  const isPopupVisible = useRef(false);
   
   // Listen for popup state changes
   useEffect(() => {
     const unsubscribe = addPopupStateListener(() => {
       if (popupState.current === 'scribe') {
         setShowWritePopup(false);
-        isPopupVisible.current = false;
       }
     });
     return unsubscribe;
   }, []);
   
+  // Calculate position at a given index in the textarea
   const getPositionAtIndex = (textarea: HTMLTextAreaElement, index: number) => {
+    // Create a range to measure where the cursor is
     const textBeforeCursor = textarea.value.substring(0, index);
     
     // Create a temporary element to measure text dimensions
@@ -560,99 +585,145 @@ export function useAiWrite(textareaRef: React.RefObject<HTMLTextAreaElement>, ai
     tempElement.style.position = 'absolute';
     tempElement.style.visibility = 'hidden';
     tempElement.style.whiteSpace = 'pre-wrap';
-    tempElement.style.width = `${textarea.clientWidth}px`;
+    tempElement.style.width = `${textarea.offsetWidth}px`;
     tempElement.style.fontSize = window.getComputedStyle(textarea).fontSize;
     tempElement.style.lineHeight = window.getComputedStyle(textarea).lineHeight;
     tempElement.style.fontFamily = window.getComputedStyle(textarea).fontFamily;
     tempElement.style.padding = window.getComputedStyle(textarea).padding;
     
-    // Add a marker at the cursor position
-    tempElement.innerHTML = textBeforeCursor.replace(/\n/g, '<br>') + '<span id="cursor">|</span>';
+    // Add the text before cursor and a marker for the cursor
+    tempElement.innerHTML = textBeforeCursor.replace(/\n/g, '<br>') + 
+                          '<span id="cursor">|</span>';
     
     document.body.appendChild(tempElement);
     
-    // Get the position of the marker
+    // Get the position of the cursor span
     const cursorSpan = tempElement.querySelector('#cursor');
+    const textareaRect = textarea.getBoundingClientRect();
     let top = 0;
     let left = 0;
     
     if (cursorSpan) {
       const cursorRect = cursorSpan.getBoundingClientRect();
-      const textareaRect = textarea.getBoundingClientRect();
-      
-      // Calculate position relative to the textarea
-      top = cursorRect.top - tempElement.getBoundingClientRect().top + textareaRect.top;
-      left = cursorRect.left - tempElement.getBoundingClientRect().left + textareaRect.left;
+      top = textareaRect.top + cursorRect.top - tempElement.getBoundingClientRect().top;
+      left = textareaRect.left + cursorRect.left - tempElement.getBoundingClientRect().left;
     }
     
     // Clean up
     document.body.removeChild(tempElement);
     
-    return { 
-      top: top + window.scrollY, 
-      left: left + window.scrollX 
+    return {
+      top: top + window.scrollY,
+      left: left + window.scrollX
     };
   };
   
+  // Handle cursor position clicks to show the AI write popup
   const handleCursorClick = (e: MouseEvent) => {
-    if (!aiScribeEnabled) return;
-    
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    
-    // Only proceed if the click is directly on the textarea
-    if (e.target !== textarea) return;
-    
-    // If popup is already visible, don't show another one
-    if (isPopupVisible.current) return;
-    
-    // Only show the popup if no text is selected
-    if (textarea.selectionStart !== textarea.selectionEnd) {
+    if (!aiScribeEnabled) {
+      console.log('AI Write not enabled');
       return;
     }
     
-    // Store the cursor position for later use
-    cursorIndex.current = textarea.selectionStart;
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      console.log('No textarea reference for AI Write');
+      return;
+    }
     
-    // Get the position directly at the cursor within the text
-    const position = getPositionAtIndex(textarea, textarea.selectionStart);
+    console.log('Cursor click detected', { x: e.clientX, y: e.clientY });
     
-    setCursorPosition(position);
-    setShowWritePopup(true);
-    isPopupVisible.current = true;
-    popupState.setPopupType('write');
+    // Only show the popup on cursor clicks (when there's no selection)
+    if (textarea.selectionStart === textarea.selectionEnd) {
+      // Use a small delay to ensure any selection has been processed first
+      setTimeout(() => {
+        // Double check that we're still dealing with a cursor position
+        if (textarea.selectionStart === textarea.selectionEnd) {
+          console.log('Showing write popup at cursor position');
+          
+          // Define position - either from mouse event or calculated from text
+          let popupX, popupY;
+          
+          if (e) {
+            // Use the mouse event position with a small offset
+            const OFFSET_X = 10; // pixels right of cursor
+            const OFFSET_Y = 15; // pixels below cursor
+            
+            popupX = e.clientX + OFFSET_X + window.scrollX;
+            popupY = e.clientY + OFFSET_Y + window.scrollY;
+            
+            console.log('Using mouse position for write popup:', { x: popupX, y: popupY });
+          } else {
+            // Fallback to text-based calculation
+            const position = getPositionAtIndex(textarea, textarea.selectionStart);
+            popupX = position.left;
+            popupY = position.top;
+            console.log('Using calculated position for write popup:', position);
+          }
+          
+          setCursorPosition({
+            top: popupY,
+            left: popupX
+          });
+          
+          setShowWritePopup(true);
+          // Update popup state to 'write' to close any other popups
+          popupState.setPopupType('write');
+        }
+      }, 10);
+    }
   };
   
+  // Set up events for cursor clicks
   useEffect(() => {
-    if (aiScribeEnabled) {
-      document.addEventListener('click', handleCursorClick);
-    }
+    if (!aiScribeEnabled) return;
+    
+    console.log('Setting up events for AI Write popup');
+    
+    // Create a document mousedown handler that closes the popup when clicking outside
+    const handleDocumentMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const popupElement = document.querySelector('.write-popup');
+      
+      // If clicking outside the popup
+      if (popupElement && !popupElement.contains(target)) {
+        console.log('Document mousedown outside write popup');
+        // Close popup on mousedown, not waiting for mouseup
+        if (showWritePopup) {
+          closeWritePopup();
+        }
+      }
+    };
+    
+    // Add click listener to detect cursor positions and show write popup
+    const handleClick = (e: MouseEvent) => {
+      // Only proceed if the target is the textarea
+      if (e.target === textareaRef.current) {
+        handleCursorClick(e);
+      }
+    };
+    
+    document.addEventListener('click', handleClick);
+    document.addEventListener('mousedown', handleDocumentMouseDown);
     
     return () => {
-      document.removeEventListener('click', handleCursorClick);
+      document.removeEventListener('click', handleClick);
+      document.removeEventListener('mousedown', handleDocumentMouseDown);
     };
-  }, [aiScribeEnabled]);
-  
-  // When the popup is closed, update the isPopupVisible flag
-  useEffect(() => {
-    if (!showWritePopup) {
-      isPopupVisible.current = false;
-    }
-  }, [showWritePopup]);
+  }, [aiScribeEnabled, showWritePopup]);
   
   const handleWrite = (instructions?: string) => {
     // Here we would integrate with the AI to generate content
-    console.log(`AI Write at cursor position ${instructions ? ` with instructions: ${instructions}` : ''}`);
+    console.log(`AI writing with instructions: ${instructions || 'none'}`);
     
     // For now, we'll just close the popup
     setShowWritePopup(false);
-    isPopupVisible.current = false;
     popupState.setPopupType('none');
   };
   
   const closeWritePopup = () => {
+    console.log('Closing write popup');
     setShowWritePopup(false);
-    isPopupVisible.current = false;
     popupState.setPopupType('none');
   };
   
@@ -660,6 +731,8 @@ export function useAiWrite(textareaRef: React.RefObject<HTMLTextAreaElement>, ai
     showWritePopup,
     cursorPosition,
     handleWrite,
-    closeWritePopup
+    closeWritePopup,
+    setShowWritePopup,
+    setCursorPosition
   };
 }
