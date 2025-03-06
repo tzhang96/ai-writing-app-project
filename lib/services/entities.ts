@@ -9,6 +9,7 @@ import {
   query,
   where,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -78,6 +79,44 @@ export interface Style {
   examples: StyleExample[];
   createdAt?: any;
   updatedAt?: any;
+}
+
+interface CharacterRelationship {
+  targetName: string;
+  type: string;
+  description: string;
+}
+
+interface LocationCharacterConnection {
+  characterName: string;
+  connection: string;
+}
+
+interface ExtendedCharacter extends Character {
+  aliases?: string[];
+  attributes?: {
+    personality?: string[];
+    appearance?: string[];
+    background?: string[];
+  };
+  relationships?: string; // Stored as formatted string
+  relationshipData?: CharacterRelationship[]; // Stored as structured data
+  personality?: string;
+  appearance?: string;
+  background?: string;
+}
+
+interface ExtendedLocation extends Location {
+  attributes?: {
+    type?: string;
+    features?: string[];
+    significance?: string[];
+    associatedCharacters?: string[];
+  };
+  characterConnections?: LocationCharacterConnection[];
+  locationType?: string;
+  features?: string;
+  significance?: string;
 }
 
 // Get all characters for a project
@@ -458,6 +497,474 @@ export async function deleteStyle(styleId: string): Promise<void> {
     await deleteDoc(docRef);
   } catch (error) {
     console.error('Error deleting style:', error);
+    throw error;
+  }
+}
+
+interface EntityToSave {
+  type: 'character' | 'location' | 'event';
+  data: any;
+  existingEntity?: ExtendedCharacter | ExtendedLocation;
+}
+
+// Helper function to ensure custom fields exist
+async function ensureCustomFields(
+  projectId: string, 
+  collectionName: CollectionName,
+  fields: { key: string; label: string; type: 'input' | 'textarea' }[]
+): Promise<void> {
+  const existingFields = await getCustomFields(projectId, collectionName);
+  const existingKeys = new Set(existingFields.map(f => f.key));
+  
+  const newFields = fields.filter(f => !existingKeys.has(f.key));
+  
+  // Create all new fields in parallel
+  await Promise.all(
+    newFields.map(field => 
+      addCustomField(projectId, collectionName, {
+        ...field,
+        isDefault: false
+      })
+    )
+  );
+}
+
+// Helper function to merge arrays without duplicates and filter out existing values
+function mergeArrays(existing: string[] = [], incoming: string[] = []): { merged: string[], newItems: string[] } {
+  const existingSet = new Set(existing);
+  const newItems = incoming.filter(item => !existingSet.has(item));
+  return {
+    merged: Array.from(new Set([...existing, ...newItems])),
+    newItems
+  };
+}
+
+// Helper function to merge character attributes
+function mergeCharacterAttributes(existing: any = {}, incoming: any = {}) {
+  const personality = mergeArrays(
+    existing.personality || [], 
+    incoming.personality || []
+  );
+  const appearance = mergeArrays(
+    existing.appearance || [], 
+    incoming.appearance || []
+  );
+  const background = mergeArrays(
+    existing.background || [], 
+    incoming.background || []
+  );
+
+  return {
+    merged: {
+      personality: personality.merged,
+      appearance: appearance.merged,
+      background: background.merged
+    },
+    newItems: {
+      personality: personality.newItems,
+      appearance: appearance.newItems,
+      background: background.newItems
+    }
+  };
+}
+
+// Helper function to merge location attributes
+function mergeLocationAttributes(existing: any = {}, incoming: any = {}) {
+  const features = mergeArrays(
+    existing.features || [], 
+    incoming.features || []
+  );
+  const significance = mergeArrays(
+    existing.significance || [], 
+    incoming.significance || []
+  );
+  const associatedCharacters = mergeArrays(
+    existing.associatedCharacters || [], 
+    incoming.associatedCharacters || []
+  );
+
+  return {
+    merged: {
+      type: incoming.type || existing.type || '',
+      features: features.merged,
+      significance: significance.merged,
+      associatedCharacters: associatedCharacters.merged
+    },
+    newItems: {
+      type: incoming.type !== existing.type ? incoming.type : null,
+      features: features.newItems,
+      significance: significance.newItems,
+      associatedCharacters: associatedCharacters.newItems
+    }
+  };
+}
+
+// Helper function to find existing entity
+export async function findExistingEntity(projectId: string, type: 'character' | 'location', name: string): Promise<ExtendedCharacter | ExtendedLocation | null> {
+  const collectionName = type === 'character' ? COLLECTIONS.characters : COLLECTIONS.locations;
+  const q = query(
+    collection(db, collectionName),
+    where('projectId', '==', projectId),
+    where('name', '==', name)
+  );
+  const querySnapshot = await getDocs(q);
+  const matches = querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
+  return matches.length > 0 ? matches[0] as (ExtendedCharacter | ExtendedLocation) : null;
+}
+
+// Save multiple entities at once
+export async function saveEntities(projectId: string, entities: EntityToSave[]): Promise<void> {
+  try {
+    const batch = writeBatch(db);
+    
+    // If we have any events to save, get the current highest sequence number
+    const eventsToSave = entities.filter(e => e.type === 'event');
+    let nextSequence = 0;
+    
+    if (eventsToSave.length > 0) {
+      const currentEvents = await getEvents(projectId);
+      nextSequence = currentEvents.length > 0 
+        ? Math.max(...currentEvents.map(e => e.sequence)) + 1 
+        : 0;
+    }
+    
+    // First, check for existing entities
+    const entitiesWithExisting = await Promise.all(
+      entities.map(async (entity) => {
+        if (entity.type === 'character' || entity.type === 'location') {
+          const existing = await findExistingEntity(projectId, entity.type, entity.data.name);
+          return { ...entity, existingEntity: existing };
+        }
+        return entity;
+      })
+    );
+    
+    for (const entity of entitiesWithExisting) {
+      const collectionName = entity.type === 'character' ? 'characters' :
+                           entity.type === 'location' ? 'locations' :
+                           'events';
+      
+      let processedData: any = { ...entity.data };
+      let docRef: any;
+      
+      if (entity.type === 'character') {
+        const existingCharacter = entity.existingEntity as ExtendedCharacter | undefined;
+        
+        if (existingCharacter) {
+          // Use existing document reference
+          docRef = doc(collection(db, collectionName), existingCharacter.id);
+          
+          // Create custom fields for character attributes if they exist
+          const customFieldsToCreate = [];
+          
+          if (entity.data.attributes) {
+            if (entity.data.attributes.personality?.length > 0) {
+              customFieldsToCreate.push({
+                key: 'personality',
+                label: 'Personality',
+                type: 'textarea' as const
+              });
+              const { merged } = mergeArrays(
+                existingCharacter.personality?.split(', ') || [],
+                entity.data.attributes.personality
+              );
+              processedData.personality = merged.join(', ');
+            }
+            
+            if (entity.data.attributes.appearance?.length > 0) {
+              customFieldsToCreate.push({
+                key: 'appearance',
+                label: 'Appearance',
+                type: 'textarea' as const
+              });
+              const { merged } = mergeArrays(
+                existingCharacter.appearance?.split(', ') || [],
+                entity.data.attributes.appearance
+              );
+              processedData.appearance = merged.join(', ');
+            }
+            
+            if (entity.data.attributes.background?.length > 0) {
+              customFieldsToCreate.push({
+                key: 'background',
+                label: 'Background',
+                type: 'textarea' as const
+              });
+              const { merged } = mergeArrays(
+                existingCharacter.background?.split('. ') || [],
+                entity.data.attributes.background
+              );
+              processedData.background = merged.join('. ');
+            }
+          }
+          
+          // Add relationships custom field if there are relationships
+          if (entity.data.relationships?.length > 0) {
+            customFieldsToCreate.push({
+              key: 'relationships',
+              label: 'Relationships',
+              type: 'textarea' as const
+            });
+            
+            // Format new relationships into a readable string
+            const relationshipStrings = entity.data.relationships.map((rel: CharacterRelationship) => 
+              `${rel.targetName} - ${rel.type}: ${rel.description}`
+            );
+            
+            // Handle existing relationships - split by newlines if it exists
+            const existingRelationshipStrings = existingCharacter.relationships ? 
+              existingCharacter.relationships.split('\n') : 
+              [];
+            
+            const { merged: mergedRelationships } = mergeArrays(
+              existingRelationshipStrings,
+              relationshipStrings
+            );
+            
+            processedData.relationships = mergedRelationships.join('\n');
+
+            // Store the structured relationship data separately
+            const existingRelData = existingCharacter.relationshipData || [];
+            const newRelData = entity.data.relationships.filter(newRel => 
+              !existingRelData.some(existingRel => 
+                existingRel.targetName === newRel.targetName && 
+                existingRel.type === newRel.type && 
+                existingRel.description === newRel.description
+              )
+            );
+            
+            processedData.relationshipData = [
+              ...existingRelData,
+              ...newRelData
+            ];
+          }
+          
+          if (customFieldsToCreate.length > 0) {
+            await ensureCustomFields(projectId, COLLECTIONS.characters, customFieldsToCreate);
+          }
+          
+          // Merge character data
+          processedData = {
+            ...processedData,
+            name: entity.data.name,
+            description: entity.data.description || existingCharacter.description || '',
+            aliases: mergeArrays(existingCharacter.aliases, entity.data.aliases),
+            attributes: mergeCharacterAttributes(existingCharacter.attributes, entity.data.attributes),
+            relationshipData: [...(existingCharacter.relationshipData || []), ...(entity.data.relationships || [])]
+          };
+          
+          // Update the existing document
+          batch.update(docRef, {
+            ...processedData,
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          // Create new document for non-existing character
+          docRef = doc(collection(db, collectionName));
+          
+          // Handle new character creation
+          const customFieldsToCreate = [];
+          
+          if (entity.data.attributes) {
+            if (entity.data.attributes.personality?.length > 0) {
+              customFieldsToCreate.push({
+                key: 'personality',
+                label: 'Personality',
+                type: 'textarea' as const
+              });
+              const { merged } = mergeArrays(
+                existingCharacter.personality?.split(', ') || [],
+                entity.data.attributes.personality
+              );
+              processedData.personality = merged.join(', ');
+            }
+            
+            if (entity.data.attributes.appearance?.length > 0) {
+              customFieldsToCreate.push({
+                key: 'appearance',
+                label: 'Appearance',
+                type: 'textarea' as const
+              });
+              const { merged } = mergeArrays(
+                existingCharacter.appearance?.split(', ') || [],
+                entity.data.attributes.appearance
+              );
+              processedData.appearance = merged.join(', ');
+            }
+            
+            if (entity.data.attributes.background?.length > 0) {
+              customFieldsToCreate.push({
+                key: 'background',
+                label: 'Background',
+                type: 'textarea' as const
+              });
+              const { merged } = mergeArrays(
+                existingCharacter.background?.split('. ') || [],
+                entity.data.attributes.background
+              );
+              processedData.background = merged.join('. ');
+            }
+          }
+
+          // Add relationships custom field if there are relationships
+          if (entity.data.relationships?.length > 0) {
+            customFieldsToCreate.push({
+              key: 'relationships',
+              label: 'Relationships',
+              type: 'textarea' as const
+            });
+            
+            // Format new relationships into a readable string
+            const relationshipStrings = entity.data.relationships.map((rel: CharacterRelationship) => 
+              `${rel.targetName} - ${rel.type}: ${rel.description}`
+            );
+            
+            processedData.relationships = relationshipStrings.join('\n');
+            processedData.relationshipData = entity.data.relationships;
+          }
+          
+          if (customFieldsToCreate.length > 0) {
+            await ensureCustomFields(projectId, COLLECTIONS.characters, customFieldsToCreate);
+          }
+          
+          // Set the new document
+          batch.set(docRef, {
+            ...processedData,
+            projectId,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+      } else if (entity.type === 'location') {
+        const existingLocation = entity.existingEntity as ExtendedLocation | undefined;
+        
+        if (existingLocation) {
+          // Use existing document reference
+          docRef = doc(collection(db, collectionName), existingLocation.id);
+          
+          // Create custom fields for location attributes if they exist
+          const customFieldsToCreate = [];
+          
+          if (entity.data.attributes) {
+            if (entity.data.attributes.type) {
+              customFieldsToCreate.push({
+                key: 'locationType',
+                label: 'Type',
+                type: 'input' as const
+              });
+              processedData.locationType = entity.data.attributes.type;
+            }
+            
+            if (entity.data.attributes.features?.length > 0) {
+              customFieldsToCreate.push({
+                key: 'features',
+                label: 'Features',
+                type: 'textarea' as const
+              });
+              processedData.features = mergeArrays(
+                existingLocation.features?.split(', ') || [],
+                entity.data.attributes.features
+              ).join(', ');
+            }
+            
+            if (entity.data.attributes.significance?.length > 0) {
+              customFieldsToCreate.push({
+                key: 'significance',
+                label: 'Significance',
+                type: 'textarea' as const
+              });
+              processedData.significance = mergeArrays(
+                existingLocation.significance?.split('. ') || [],
+                entity.data.attributes.significance
+              ).join('. ');
+            }
+          }
+          
+          // Merge location data
+          processedData = {
+            ...processedData,
+            name: entity.data.name,
+            description: entity.data.description || existingLocation.description || '',
+            attributes: mergeLocationAttributes(existingLocation.attributes, entity.data.attributes),
+            characterConnections: [...(existingLocation.characterConnections || []), ...(entity.data.characterConnections || [])]
+          };
+          
+          // Update the existing document
+          batch.update(docRef, {
+            ...processedData,
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          // Create new document for non-existing location
+          docRef = doc(collection(db, collectionName));
+          
+          // Handle new location creation
+          if (entity.data.attributes) {
+            const customFieldsToCreate = [];
+            
+            if (entity.data.attributes.type) {
+              customFieldsToCreate.push({
+                key: 'locationType',
+                label: 'Type',
+                type: 'input' as const
+              });
+              processedData.locationType = entity.data.attributes.type;
+            }
+            
+            if (entity.data.attributes.features?.length > 0) {
+              customFieldsToCreate.push({
+                key: 'features',
+                label: 'Features',
+                type: 'textarea' as const
+              });
+              processedData.features = entity.data.attributes.features.join(', ');
+            }
+            
+            if (entity.data.attributes.significance?.length > 0) {
+              customFieldsToCreate.push({
+                key: 'significance',
+                label: 'Significance',
+                type: 'textarea' as const
+              });
+              processedData.significance = entity.data.attributes.significance.join('. ');
+            }
+            
+            if (customFieldsToCreate.length > 0) {
+              await ensureCustomFields(projectId, COLLECTIONS.locations, customFieldsToCreate);
+            }
+          }
+          
+          // Set the new document
+          batch.set(docRef, {
+            ...processedData,
+            projectId,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+      } else {
+        // Handle events (no merging needed, always create new)
+        docRef = doc(collection(db, collectionName));
+        processedData = {
+          ...entity.data,
+          sequence: nextSequence++
+        };
+        
+        batch.set(docRef, {
+          ...processedData,
+          projectId,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+    }
+    
+    await batch.commit();
+  } catch (error) {
+    console.error('Error saving entities:', error);
     throw error;
   }
 } 

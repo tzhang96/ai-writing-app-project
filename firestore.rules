@@ -26,5 +26,9 @@ service cloud.firestore {
     match /style/{styleId} {
       allow read, write;
     }
+    
+    match /brainstorms/{brainstormId} {
+      allow read, write;
+    }
   }
 } 
