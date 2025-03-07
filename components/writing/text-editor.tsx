@@ -21,7 +21,7 @@ import {
   Redo,
   Search
 } from 'lucide-react';
-import { AiEnhancedTextarea } from '@/components/ui/ai-enhanced-textarea';
+import { AiEnhancedTipTapEditor } from '@/components/ui/ai-enhanced-tiptap-editor';
 
 interface ChapterContent {
   id: string;
@@ -68,32 +68,84 @@ export function TextEditor({ activeChapterId, aiScribeEnabled, activeChapter, on
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   
+  // Use refs instead of state to track update state without triggering re-renders
+  const isUpdatingRef = useRef(false);
+  const lastActiveChapterIdRef = useRef<string | null>(null);
+  
+  // Add editor ref to control formatting with proper typing
+  const editorRef = useRef<{
+    toggleBold: () => void;
+    toggleItalic: () => void;
+    toggleUnderline: () => void;
+    setTextAlign: (align: 'left' | 'center' | 'right') => void;
+    toggleBulletList: () => void;
+    toggleOrderedList: () => void;
+    toggleHeading: (level: 1 | 2 | 3) => void;
+    undo: () => void;
+    redo: () => void;
+    isActive: (name: string, attributes?: Record<string, any>) => boolean;
+    focus: () => void;
+  } | null>(null);
+  
+  // Load chapter content ONLY when activeChapterId changes
   useEffect(() => {
-    if (activeChapterId) {
-      const content = chapterContents.find(c => c.id === activeChapterId)?.content || '';
-      setCurrentContent(content);
-      setWordCount(countWords(content));
-    } else {
+    // Skip if no active chapter
+    if (!activeChapterId) {
       setCurrentContent('');
       setWordCount(0);
+      lastActiveChapterIdRef.current = null;
+      return;
     }
+    
+    // Skip if we're already on this chapter (prevents content reload loops)
+    if (activeChapterId === lastActiveChapterIdRef.current && isUpdatingRef.current) {
+      return;
+    }
+    
+    // Load content from the chapter
+    const chapterContent = chapterContents.find(c => c.id === activeChapterId)?.content || '';
+    
+    // Update state
+    setCurrentContent(chapterContent);
+    setWordCount(countWords(extractPlainText(chapterContent)));
+    
+    // Update our tracking refs
+    lastActiveChapterIdRef.current = activeChapterId;
+    isUpdatingRef.current = false;
+    
   }, [activeChapterId, chapterContents]);
   
+  // Extract plain text from HTML content
+  const extractPlainText = (html: string) => {
+    if (!html) return '';
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    return tempDiv.textContent || tempDiv.innerText || '';
+  };
+  
   const countWords = (text: string) => {
+    if (!text) return 0;
     return text.split(/\s+/).filter(word => word.length > 0).length;
   };
   
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newContent = e.target.value;
-    setCurrentContent(newContent);
-    setWordCount(countWords(newContent));
+  // Content change handler - doesn't trigger the chapter load effect
+  const handleContentChange = (newContent: string) => {
+    // Set updating flag to prevent content reload
+    isUpdatingRef.current = true;
     
+    // Update current content and word count
+    setCurrentContent(newContent);
+    setWordCount(countWords(extractPlainText(newContent)));
+    
+    // Update chapter content in our local state
     if (activeChapterId) {
-      setChapterContents(chapterContents.map(c => 
-        c.id === activeChapterId 
-          ? { ...c, content: newContent } 
-          : c
-      ));
+      setChapterContents(prevContents => {
+        return prevContents.map(c => 
+          c.id === activeChapterId 
+            ? { ...c, content: newContent } 
+            : c
+        );
+      });
     }
   };
   
@@ -127,55 +179,107 @@ export function TextEditor({ activeChapterId, aiScribeEnabled, activeChapter, on
     <div className="h-full flex flex-col relative">
       <div className="border-b p-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => editorRef.current?.toggleBold()}
+          >
             <Bold className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => editorRef.current?.toggleItalic()}
+          >
             <Italic className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => editorRef.current?.toggleUnderline()}
+          >
             <Underline className="h-4 w-4" />
           </Button>
           
           <Separator orientation="vertical" className="h-6" />
           
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => editorRef.current?.setTextAlign('left')}
+          >
             <AlignLeft className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => editorRef.current?.setTextAlign('center')}
+          >
             <AlignCenter className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => editorRef.current?.setTextAlign('right')}
+          >
             <AlignRight className="h-4 w-4" />
           </Button>
           
           <Separator orientation="vertical" className="h-6" />
           
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => editorRef.current?.toggleBulletList()}
+          >
             <List className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => editorRef.current?.toggleOrderedList()}
+          >
             <ListOrdered className="h-4 w-4" />
           </Button>
           
           <Separator orientation="vertical" className="h-6" />
           
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => editorRef.current?.toggleHeading(1)}
+          >
             <Heading1 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => editorRef.current?.toggleHeading(2)}
+          >
             <Heading2 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => editorRef.current?.toggleHeading(3)}
+          >
             <Heading3 className="h-4 w-4" />
           </Button>
           
           <Separator orientation="vertical" className="h-6" />
           
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => editorRef.current?.undo()}
+          >
             <Undo className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => editorRef.current?.redo()}
+          >
             <Redo className="h-4 w-4" />
           </Button>
           
@@ -210,15 +314,18 @@ export function TextEditor({ activeChapterId, aiScribeEnabled, activeChapter, on
       
       <ScrollArea className="flex-1 p-6">
         {activeChapterId ? (
-          <AiEnhancedTextarea
+          <AiEnhancedTipTapEditor
             value={currentContent}
             onChange={handleContentChange}
-            className="w-full h-full min-h-[calc(100vh-250px)] p-4 text-lg leading-relaxed resize-none focus:outline-none bg-transparent"
+            className="w-full h-full"
             placeholder="Start writing here..."
             aiScribeEnabled={aiScribeEnabled}
-            chapterId={activeChapterId}
-            projectId={activeChapter?.projectId}
-            contentType="text"
+            onAiContent={(newContent) => {
+              // Mark as updating to prevent content reload
+              isUpdatingRef.current = true;
+              handleContentChange(newContent);
+            }}
+            editorRef={editorRef}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">

@@ -179,8 +179,8 @@ export function AiScribePopup({
   return (
     <TooltipProvider>
       <div 
-        ref={popupRef} 
-        className={`fixed shadow-lg rounded-lg bg-background border border-border p-2 w-[280px] z-[9999] ${className || ''}`}
+        ref={popupRef}
+        className={`fixed shadow-lg rounded-lg bg-background border border-border p-2 w-[250px] z-[9999] ${className || ''}`}
         style={{ 
           position: 'fixed',
           top: 0, 
@@ -302,37 +302,37 @@ export function AiWritePopup({ position, onWrite, onClose, className }: AiWriteP
   };
   
   return (
-    <div 
-      ref={popupRef} 
-      className={`fixed shadow-lg rounded-lg bg-background border border-border p-2 w-[280px] z-[9999] write-popup ${className || ''}`}
-      style={{ 
+      <div 
+        ref={popupRef}
+      className={`fixed shadow-lg rounded-lg bg-background border border-border p-2 w-[250px] z-[9999] write-popup ${className || ''}`}
+        style={{ 
         position: 'fixed',
         top: 0, 
         left: 0,
         transform: isPositionedAbove ? 'translateY(-100%)' : 'none',
         marginTop: isPositionedAbove ? '-8px' : '8px'
-      }}
-    >
-      <div className="p-3">
-        <div className="flex flex-col gap-2">
-          <Button 
-            size="sm" 
-            variant="secondary"
-            className="h-7 text-xs px-3 py-0 whitespace-nowrap flex items-center justify-center gap-1 w-full"
-            onClick={handleWrite}
-          >
-            <Wand2 className="h-3.5 w-3.5" />
-            <span>AI Write</span>
-          </Button>
-          <Input 
-            placeholder="Additional Instructions (optional)"
-            className="text-xs h-7"
-            value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
-          />
+        }}
+      >
+        <div className="p-3">
+          <div className="flex flex-col gap-2">
+            <Button 
+              size="sm" 
+              variant="secondary"
+              className="h-7 text-xs px-3 py-0 whitespace-nowrap flex items-center justify-center gap-1 w-full"
+              onClick={handleWrite}
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              <span>AI Write</span>
+            </Button>
+            <Input 
+              placeholder="Additional Instructions (optional)"
+              className="text-xs h-7"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+            />
+          </div>
         </div>
       </div>
-    </div>
   );
 }
 
@@ -531,37 +531,37 @@ export function useAiScribe(textareaRef: React.RefObject<HTMLTextAreaElement>, a
           popupY = e.clientY + OFFSET_Y + window.scrollY;
         } else {
           // Fallback to text-based calculation
-          // Get the textarea's position and the selection coordinates
-          const textareaRect = textarea.getBoundingClientRect();
+        // Get the textarea's position and the selection coordinates
+        const textareaRect = textarea.getBoundingClientRect();
+        
+        // Create a range to measure where the selection is
+        const textBeforeSelection = textarea.value.substring(0, start);
+        
+        // Create a temporary element to measure text dimensions
+        const tempElement = document.createElement('div');
+        tempElement.style.position = 'absolute';
+        tempElement.style.visibility = 'hidden';
+        tempElement.style.whiteSpace = 'pre-wrap';
+        tempElement.style.width = `${textareaRect.width}px`;
+        tempElement.style.fontSize = window.getComputedStyle(textarea).fontSize;
+        tempElement.style.lineHeight = window.getComputedStyle(textarea).lineHeight;
+        tempElement.style.fontFamily = window.getComputedStyle(textarea).fontFamily;
+        tempElement.style.padding = window.getComputedStyle(textarea).padding;
+        
+        // Add the text before selection and a span for the selection
+        tempElement.innerHTML = textBeforeSelection.replace(/\n/g, '<br>') + 
+                              '<span id="selection">' + 
+                              selectedTextValue.replace(/\n/g, '<br>') + 
+                              '</span>';
+        
+        document.body.appendChild(tempElement);
+        
+        // Get the position of the selection span
+        const selectionSpan = tempElement.querySelector('#selection');
+        if (selectionSpan) {
+          const selectionRect = selectionSpan.getBoundingClientRect();
           
-          // Create a range to measure where the selection is
-          const textBeforeSelection = textarea.value.substring(0, start);
-          
-          // Create a temporary element to measure text dimensions
-          const tempElement = document.createElement('div');
-          tempElement.style.position = 'absolute';
-          tempElement.style.visibility = 'hidden';
-          tempElement.style.whiteSpace = 'pre-wrap';
-          tempElement.style.width = `${textareaRect.width}px`;
-          tempElement.style.fontSize = window.getComputedStyle(textarea).fontSize;
-          tempElement.style.lineHeight = window.getComputedStyle(textarea).lineHeight;
-          tempElement.style.fontFamily = window.getComputedStyle(textarea).fontFamily;
-          tempElement.style.padding = window.getComputedStyle(textarea).padding;
-          
-          // Add the text before selection and a span for the selection
-          tempElement.innerHTML = textBeforeSelection.replace(/\n/g, '<br>') + 
-                                '<span id="selection">' + 
-                                selectedTextValue.replace(/\n/g, '<br>') + 
-                                '</span>';
-          
-          document.body.appendChild(tempElement);
-          
-          // Get the position of the selection span
-          const selectionSpan = tempElement.querySelector('#selection');
-          if (selectionSpan) {
-            const selectionRect = selectionSpan.getBoundingClientRect();
-            
-            // Calculate the position for the popup
+          // Calculate the position for the popup
             popupY = textareaRect.top + selectionRect.top - tempElement.getBoundingClientRect().top + selectionRect.height + window.scrollY;
             popupX = textareaRect.left + selectionRect.left - tempElement.getBoundingClientRect().left + window.scrollX;
           }
@@ -569,16 +569,16 @@ export function useAiScribe(textareaRef: React.RefObject<HTMLTextAreaElement>, a
           // Clean up
           document.body.removeChild(tempElement);
         }
-        
-        setSelectedText(selectedTextValue);
-        setPopupPosition({
+          
+          setSelectedText(selectedTextValue);
+          setPopupPosition({
           top: popupY,
           left: popupX
-        });
+          });
         
-        setShowAiPopup(true);
-        // Update popup state to 'scribe' to close any other popups
-        popupState.setPopupType('scribe');
+          setShowAiPopup(true);
+          // Update popup state to 'scribe' to close any other popups
+          popupState.setPopupType('scribe');
       } else if (!isInteractingWithPopup.current) {
         selectionRange.current = null;
       }
@@ -614,11 +614,11 @@ export function useAiScribe(textareaRef: React.RefObject<HTMLTextAreaElement>, a
       
       document.addEventListener('mouseup', handleMouseUp);
       document.addEventListener('mousedown', handleDocumentMouseDown);
-      
-      return () => {
+    
+    return () => {
         document.removeEventListener('mouseup', handleMouseUp);
         document.removeEventListener('mousedown', handleDocumentMouseDown);
-      };
+    };
     }
   }, [aiScribeEnabled, showAiPopup]);
   
@@ -743,9 +743,9 @@ export function useAiWrite(textareaRef: React.RefObject<HTMLTextAreaElement>, ai
     // Clean up
     document.body.removeChild(tempElement);
     
-    return {
-      top: top + window.scrollY,
-      left: left + window.scrollX
+    return { 
+      top: top + window.scrollY, 
+      left: left + window.scrollX 
     };
   };
   
@@ -784,9 +784,9 @@ export function useAiWrite(textareaRef: React.RefObject<HTMLTextAreaElement>, ai
             left: popupX
           });
           
-          setShowWritePopup(true);
+    setShowWritePopup(true);
           // Update popup state to 'write' to close any other popups
-          popupState.setPopupType('write');
+    popupState.setPopupType('write');
         }
       }, 10);
     }
