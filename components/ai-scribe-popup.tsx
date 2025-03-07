@@ -9,7 +9,8 @@ import {
   Minimize2, 
   RefreshCw, 
   Edit,
-  PenLine
+  PenLine,
+  Loader2
 } from 'lucide-react';
 import {
   Tooltip,
@@ -18,7 +19,18 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { generateAIContent } from '@/lib/services/ai';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getApp } from 'firebase/app';
+
+// Types for our AI operations
+type AIAction = 'expand' | 'summarize' | 'rephrase' | 'revise';
+
+interface AITransformationRequest {
+  text: string;
+  action: AIAction;
+  additionalInstructions?: string;
+  fullDocument?: string;
+}
 
 // Create a shared context for popup state management
 type PopupType = 'none' | 'scribe' | 'write';
@@ -634,37 +646,50 @@ export function useAiScribe(textareaRef: React.RefObject<HTMLTextAreaElement>, a
       const currentValue = textarea.value;
       
       try {
-        // Call the AI service to transform the text
-        const result = await generateAIContent({
-          type: action as any, // Type casting since the actual type is more specific
-          projectId: 'placeholder-project-id', // This will need to be provided from props or context
-          chapterId: 'placeholder-chapter-id', // This will need to be provided from props or context
-          currentContent: selectedText,
+        // Get Firebase functions instance
+        const functions = getFunctions(getApp());
+        
+        // Create a callable reference to our Cloud Function
+        const transformText = httpsCallable<AITransformationRequest, { success: boolean; transformedText: string }>(
+          functions,
+          'transformText'
+        );
+        
+        // Call the Cloud Function
+        const result = await transformText({
+          text: selectedText,
+          action: action as AIAction,
+          additionalInstructions: instructions,
+          fullDocument: currentValue
         });
         
-        // Extract the generated content
-        const transformedText = result.data.generatedContent;
+        if (result.data.success) {
+          // Extract the transformed text
+          const transformedText = result.data.transformedText;
         
-        // Replace the selected text with the transformed text
-        const newValue = currentValue.substring(0, start) + 
-                        transformedText + 
-                        currentValue.substring(end);
-        
-        // Update the textarea value
-        textarea.value = newValue;
-        
-        // Create and dispatch an input event to ensure onChange handlers are triggered
-        const inputEvent = new Event('input', { bubbles: true });
-        Object.defineProperty(inputEvent, 'target', {
-          writable: false,
-          value: { value: newValue }
-        });
-        textarea.dispatchEvent(inputEvent);
-        
-        // Move cursor to the end of the replaced text
-        textarea.focus();
-        const newCursorPosition = start + transformedText.length;
-        textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+          // Replace the selected text with the transformed text
+          const newValue = currentValue.substring(0, start) + 
+                          transformedText + 
+                          currentValue.substring(end);
+          
+          // Update the textarea value
+          textarea.value = newValue;
+          
+          // Create and dispatch an input event to ensure onChange handlers are triggered
+          const inputEvent = new Event('input', { bubbles: true });
+          Object.defineProperty(inputEvent, 'target', {
+            writable: false,
+            value: { value: newValue }
+          });
+          textarea.dispatchEvent(inputEvent);
+          
+          // Move cursor to the end of the replaced text
+          textarea.focus();
+          const newCursorPosition = start + transformedText.length;
+          textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+        } else {
+          throw new Error('Failed to transform text');
+        }
       } catch (error) {
         console.error('Error transforming text:', error);
         // Handle error - could show an error message to the user
@@ -837,44 +862,47 @@ export function useAiWrite(textareaRef: React.RefObject<HTMLTextAreaElement>, ai
       const currentValue = textarea.value;
       
       try {
-        // Call the AI service to generate text
-        const result = await generateAIContent({
-          type: 'text', // Use 'text' type for general writing
-          projectId: 'placeholder-project-id', // This will need to be provided from props or context
-          chapterId: 'placeholder-chapter-id', // This will need to be provided from props or context
-          currentContent: currentValue,
+        // Get Firebase functions instance
+        const functions = getFunctions(getApp());
+        
+        // Create a callable reference to our Cloud Function
+        const transformText = httpsCallable<AITransformationRequest, { success: boolean; transformedText: string }>(
+          functions,
+          'transformText'
+        );
+        
+        // Call the Cloud Function - ensure text is never undefined
+        const result = await transformText({
+          text: instructions || '', // Use empty string if instructions is undefined
+          action: 'expand', // Default action for writing new content
+          additionalInstructions: instructions ? `Generate creative content based on: ${instructions}` : undefined
         });
         
-        // Extract the generated content
-        const generatedText = result.data.generatedContent;
-        
-        // Insert the generated text at the cursor position
-        const newValue = currentValue.substring(0, cursorPos) + 
-                         generatedText + 
-                         currentValue.substring(cursorPos);
-        
-        // Update the textarea value
-        textarea.value = newValue;
-        
-        // Create and dispatch an input event to ensure onChange handlers are triggered
-        const inputEvent = new Event('input', { bubbles: true });
-        Object.defineProperty(inputEvent, 'target', {
-          writable: false,
-          value: { value: newValue }
-        });
-        textarea.dispatchEvent(inputEvent);
-        
-        // Move cursor to the end of the inserted text
-        textarea.focus();
-        const newCursorPosition = cursorPos + generatedText.length;
-        textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+        if (result.data.success) {
+          // Extract the generated text
+          const generatedText = result.data.transformedText;
+          
+          // Insert the generated text at the cursor position
+          const newValue = currentValue.substring(0, cursorPos) + 
+                           generatedText + 
+                           currentValue.substring(cursorPos);
+          
+          // Update the textarea value
+          textarea.value = newValue;
+          
+          // Update the cursor position and focus
+          const newCursorPos = cursorPos + generatedText.length;
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+          textarea.focus();
+        } else {
+          throw new Error('Failed to generate text');
+        }
       } catch (error) {
-        console.error('Error generating text:', error);
-        // Handle error - could show an error message to the user
+        console.error('Error generating AI text:', error);
       }
       
-      // Close the popup after generating text
-      closeWritePopup();
+      // Close the popup
+      setShowWritePopup(false);
     }
   };
   

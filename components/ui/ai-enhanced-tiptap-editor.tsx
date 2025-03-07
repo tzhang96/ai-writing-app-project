@@ -17,7 +17,8 @@ import {
 } from "@/components/ai-scribe-popup";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { generateAIContent } from "@/lib/services/ai";
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getApp } from 'firebase/app';
 import PersistentHighlight from "./extensions/PersistentHighlight";
 import { highlightSelection, clearAllHighlights } from "./extensions/highlightUtils";
 import '@/styles/tiptap.css'; // Import TipTap styling
@@ -42,6 +43,16 @@ export interface AiEnhancedTipTapEditorProps {
     isActive: (name: string, attributes?: Record<string, any>) => boolean;
     focus: () => void;
   } | null>;
+}
+
+// Types for our AI operations
+type AIAction = 'expand' | 'summarize' | 'rephrase' | 'revise';
+
+interface AITransformationRequest {
+  text: string;
+  action: AIAction;
+  additionalInstructions?: string;
+  fullDocument?: string;
 }
 
 export function AiEnhancedTipTapEditor({
@@ -358,48 +369,53 @@ export function AiEnhancedTipTapEditor({
       
       setIsGenerating(true);
       
-      // Use the content as context for the action
-      const result = await generateAIContent({
-        type: 'text', // Using 'text' type for all transformations
-        projectId: 'placeholder-project-id', // This should be provided from props
-        chapterId: 'placeholder-chapter-id', // This should be provided from props
-        currentContent: `${action} the following text${instructions ? ` with instructions: ${instructions}` : ''}: ${selectedContent}`
+      // Get Firebase functions instance
+      const functions = getFunctions(getApp());
+      
+      // Create a callable reference to our Cloud Function
+      const transformText = httpsCallable<AITransformationRequest, { success: boolean; transformedText: string }>(
+        functions,
+        'transformText'
+      );
+      
+      // Call the Cloud Function
+      const result = await transformText({
+        text: selectedContent,
+        action: action as AIAction,
+        additionalInstructions: instructions,
+        fullDocument: editor.getText()
       });
       
       // Only proceed if editor still exists and is focused
       if (editor && !editor.isDestroyed) {
-        // Delete current selection
-        editor.chain().focus().deleteSelection().run();
+        // Remove the processing highlight
+        clearAllHighlights(editor);
         
-        // Insert the AI-generated content
-        if (result && result.data && result.data.generatedContent) {
-          editor.chain().insertContent(result.data.generatedContent).run();
-          
-          // Inform parent about the AI content if needed
+        if (result.data.success) {
+          // Replace the selected content with the transformed text
+          editor.chain()
+            .focus()
+            .deleteSelection()
+            .insertContent(result.data.transformedText)
+            .run();
+            
+          // If a callback is provided, use it
           if (onAiContent) {
             onAiContent(editor.getHTML());
           }
         } else {
-          // If no content was generated, restore the original text
-          editor.chain().insertContent(selectedContent).run();
-          console.error("AI content generation failed", result);
+          console.error('Failed to transform text');
         }
-        
-        // Remove highlights
-        clearAllHighlights(editor);
-        
-        // Ensure editor has focus
-        editor.commands.focus();
       }
     } catch (error) {
-      console.error(`Error generating AI content for ${action}:`, error);
-      // If an error occurred, restore the selection
+      console.error('Error transforming text:', error);
+      
+      // Clean up highlight on error
       if (editor && !editor.isDestroyed) {
         clearAllHighlights(editor);
       }
     } finally {
       setIsGenerating(false);
-      closePopup();
     }
   };
   
@@ -411,37 +427,45 @@ export function AiEnhancedTipTapEditor({
       const position = editor.state.selection.from;
       
       setIsGenerating(true);
-      const result = await generateAIContent({
-        type: 'text', // Use 'text' type for general writing
-        projectId: 'placeholder-project-id', // This should be provided from props
-        chapterId: 'placeholder-chapter-id', // This should be provided from props
-        currentContent: instructions ? `Generate text based on: ${instructions}` : 'Generate creative text'
+      
+      // Get Firebase functions instance
+      const functions = getFunctions(getApp());
+      
+      // Create a callable reference to our Cloud Function
+      const transformText = httpsCallable<AITransformationRequest, { success: boolean; transformedText: string }>(
+        functions,
+        'transformText'
+      );
+      
+      // Call the Cloud Function
+      const result = await transformText({
+        text: instructions || "Generate creative content",
+        action: 'expand',
+        additionalInstructions: "Generate text that can be inserted at the current cursor position.",
+        fullDocument: editor.getText()
       });
       
       // Only proceed if editor still exists and is focused
       if (editor && !editor.isDestroyed) {
-        // Insert the AI-generated content at the cursor position
-        if (result && result.data && result.data.generatedContent) {
+        if (result.data.success) {
           // Position cursor at the original position first
           editor.chain().focus().setTextSelection(position).run();
           
           // Insert the content
-          editor.chain().insertContent(result.data.generatedContent).run();
+          editor.chain().insertContent(result.data.transformedText).run();
           
-          // Inform parent about the AI content if needed
+          // If a callback is provided, use it
           if (onAiContent) {
             onAiContent(editor.getHTML());
           }
+        } else {
+          console.error('Failed to generate text');
         }
-        
-        // Ensure editor has focus
-        editor.commands.focus();
       }
     } catch (error) {
-      console.error("Error generating AI write content:", error);
+      console.error('Error generating text:', error);
     } finally {
       setIsGenerating(false);
-      closeWritePopup();
     }
   };
   

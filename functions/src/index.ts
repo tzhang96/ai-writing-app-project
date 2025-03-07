@@ -752,4 +752,6 @@ Generate a new paragraph (3-5 sentences) that flows naturally from the current c
     console.error('Error in generateAIContent:', error);
     throw new Error(error instanceof Error ? error.message : 'Unknown error in content generation');
   }
-}); 
+});
+
+export { transformText } from './ai-transform'; 
