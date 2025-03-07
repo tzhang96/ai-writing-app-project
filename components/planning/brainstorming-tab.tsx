@@ -1,5 +1,6 @@
 "use client";
 
+import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import { getBrainstorms, createBrainstorm, updateBrainstorm, deleteBrainstorm, B
 import { EntityConfirmationDialog } from './entity-confirmation-dialog';
 import { saveEntities } from '@/lib/services/entities';
 import { findExistingEntity } from '@/lib/services/entities';
+import { AiScribePopup, useAiScribe } from '@/components/ai-scribe-popup';
 
 interface BrainstormCardProps {
   brainstorm: Brainstorm;
@@ -44,8 +46,10 @@ function BrainstormCard({
   activeProject,
   toast 
 }: BrainstormCardProps) {
+  const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(brainstorm.title);
   const [editContent, setEditContent] = useState(brainstorm.content);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -53,6 +57,15 @@ function BrainstormCard({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const updateTimeoutRef = useRef<NodeJS.Timeout>();
   
+  // Add AI scribe functionality
+  const {
+    showAiPopup,
+    selectedText,
+    popupPosition,
+    handleAiAction,
+    closePopup
+  } = useAiScribe(textareaRef, aiScribeEnabled);
+
   // Debounced update function
   const handleUpdate = (newTitle: string, newContent: string) => {
     if (updateTimeoutRef.current) {
@@ -64,9 +77,9 @@ function BrainstormCard({
     }, 500); // 500ms debounce
   };
 
-  // Handle AI-generated content
-  const handleAiContent = (content: string) => {
-    const newContent = editContent + content;
+  // Update the AI content handler for the transformed text
+  const handleAiContent = (transformedText: string) => {
+    const newContent = editContent + transformedText;
     setEditContent(newContent);
     handleUpdate(editTitle, newContent);
   };
@@ -80,161 +93,193 @@ function BrainstormCard({
   }, []);
 
   return (
-    <Card className="mb-3 overflow-hidden relative">
-      <div 
-        className="flex items-center h-9 px-2 cursor-pointer hover:bg-accent/50"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        {isExpanded ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0 mr-2" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mr-2" />
-        )}
-        
-        <Input
-          value={editTitle}
-          onChange={(e) => {
-            e.stopPropagation();
-            setEditTitle(e.target.value);
-            handleUpdate(e.target.value, editContent);
-          }}
-          onBlur={() => onUpdate(brainstorm.id, editTitle, editContent)}
-          onClick={(e) => e.stopPropagation()}
-          className="h-7 px-0 font-medium border-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
-          placeholder="Brainstorm title..."
-        />
-        
-        <div className="ml-auto">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-7 w-7 p-0"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem 
-                className="text-destructive focus:text-destructive cursor-pointer"
-                onClick={() => onDelete(brainstorm.id)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-      
-      <div className={cn("transition-all", isExpanded ? "max-h-[500px]" : "max-h-0 overflow-hidden")}>
-        <CardContent className="pt-2 px-3 pb-2">
-          <AiEnhancedTextarea
-            ref={textareaRef}
-            value={editContent}
+    <>
+      <Card className="mb-4 relative group">
+        <div 
+          className="flex items-center h-9 px-2 cursor-pointer hover:bg-accent/50"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {isExpanded ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0 mr-2" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mr-2" />
+          )}
+          
+          <Input
+            value={editTitle}
             onChange={(e) => {
-              setEditContent(e.target.value);
-              handleUpdate(editTitle, e.target.value);
+              e.stopPropagation();
+              setEditTitle(e.target.value);
+              handleUpdate(e.target.value, editContent);
             }}
             onBlur={() => onUpdate(brainstorm.id, editTitle, editContent)}
-            className="min-h-[80px] resize-none border focus-visible:ring-1 text-sm"
-            placeholder="Describe your brainstorm..."
-            aiScribeEnabled={aiScribeEnabled}
-            onAiContent={handleAiContent}
-            contentType="note"
-            projectId={activeProject.id}
+            onClick={(e) => e.stopPropagation()}
+            className="h-7 px-0 font-medium border-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
+            placeholder="Brainstorm title..."
           />
-        </CardContent>
-        <CardFooter className="flex justify-between items-center pt-0 px-3 pb-2">
-          <span className="text-xs text-muted-foreground">
-            Updated: {formatDate(brainstorm.updatedAt)}
-          </span>
-          <Button 
-            variant="default" 
-            size="sm" 
-            className="h-7 text-xs bg-black hover:bg-black/90 text-white"
-            onClick={async () => {
-              if (!brainstorm.content.trim()) {
-                toast({
-                  title: "Error",
-                  description: "Please add some content to your brainstorm before processing.",
-                  variant: "destructive"
-                });
-                return;
-              }
+          
+          <div className="ml-auto">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 w-7 p-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem 
+                  className="text-destructive focus:text-destructive cursor-pointer"
+                  onClick={() => onDelete(brainstorm.id)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        
+        <div className={cn("transition-all", isExpanded ? "max-h-[500px]" : "max-h-0 overflow-hidden")}>
+          <CardContent className="pt-2 px-3 pb-2">
+            <AiEnhancedTextarea
+              ref={textareaRef}
+              value={editContent}
+              onChange={(e) => {
+                setEditContent(e.target.value);
+                handleUpdate(editTitle, e.target.value);
+              }}
+              onBlur={() => onUpdate(brainstorm.id, editTitle, editContent)}
+              className="min-h-[80px] resize-none border focus-visible:ring-1 text-sm"
+              placeholder="Describe your brainstorm..."
+              aiScribeEnabled={aiScribeEnabled}
+              onAiContent={handleAiContent}
+              contentType="note"
+              projectId={activeProject.id}
+            />
+          </CardContent>
+          <CardFooter className="flex justify-between items-center pt-0 px-3 pb-2">
+            <span className="text-xs text-muted-foreground">
+              Updated: {formatDate(brainstorm.updatedAt)}
+            </span>
+            <Button 
+              variant="default" 
+              size="sm" 
+              className="h-7 text-xs bg-black hover:bg-black/90 text-white"
+              onClick={async () => {
+                if (!brainstorm.content.trim()) {
+                  toast({
+                    title: "Error",
+                    description: "Please add some content to your brainstorm before processing.",
+                    variant: "destructive"
+                  });
+                  return;
+                }
 
-              setIsProcessing(true);
-              try {
-                console.log('Attempting to process note:', {
-                  content: brainstorm.content
-                });
-                
-                const result = await processNote({
-                  content: brainstorm.content
-                });
+                setIsProcessing(true);
+                try {
+                  console.log('Attempting to process note:', {
+                    content: brainstorm.content
+                  });
+                  
+                  const result = await processNote({
+                    content: brainstorm.content
+                  });
 
-                console.log('Processed note result:', result);
-                
-                // Check for existing entities
-                const existingEntitiesPromises = [
-                  ...result.data.extractedEntities.characters.map(async char => {
-                    const existing = await findExistingEntity(activeProject.id, 'character', char.name);
-                    return {
-                      type: 'character' as const,
-                      data: char,
-                      existingEntity: existing
-                    };
-                  }),
-                  ...result.data.extractedEntities.locations.map(async loc => {
-                    const existing = await findExistingEntity(activeProject.id, 'location', loc.name);
-                    return {
-                      type: 'location' as const,
-                      data: loc,
-                      existingEntity: existing
-                    };
-                  }),
-                  ...result.data.extractedEntities.events.map(event => ({
-                    type: 'event' as const,
-                    data: {
-                      ...event,
-                      title: event.name,
-                      description: event.description || event.name
-                    }
-                  }))
-                ];
-                
-                const entities = await Promise.all(existingEntitiesPromises);
-                
-                setExtractedEntities(entities);
-                setShowConfirmation(true);
-              } catch (error) {
-                console.error('Error processing note:', error);
-                toast({
-                  title: "Error",
-                  description: "Failed to process the brainstorm. Please try again.",
-                  variant: "destructive"
-                });
-              } finally {
-                setIsProcessing(false);
+                  console.log('Processed note result:', result);
+                  
+                  // Check for existing entities
+                  const existingEntitiesPromises = [
+                    ...result.data.extractedEntities.characters.map(async char => {
+                      const existing = await findExistingEntity(activeProject.id, 'character', char.name);
+                      return {
+                        type: 'character' as const,
+                        data: char,
+                        existingEntity: existing
+                      };
+                    }),
+                    ...result.data.extractedEntities.locations.map(async loc => {
+                      const existing = await findExistingEntity(activeProject.id, 'location', loc.name);
+                      return {
+                        type: 'location' as const,
+                        data: loc,
+                        existingEntity: existing
+                      };
+                    }),
+                    ...result.data.extractedEntities.events.map(event => ({
+                      type: 'event' as const,
+                      data: {
+                        ...event,
+                        title: event.name,
+                        description: event.description || event.name
+                      }
+                    }))
+                  ];
+                  
+                  const entities = await Promise.all(existingEntitiesPromises);
+                  
+                  setExtractedEntities(entities);
+                  setShowConfirmation(true);
+                } catch (error) {
+                  console.error('Error processing note:', error);
+                  toast({
+                    title: "Error",
+                    description: "Failed to process the brainstorm. Please try again.",
+                    variant: "destructive"
+                  });
+                } finally {
+                  setIsProcessing(false);
+                }
+              }}
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="h-3 w-3 mr-1" />
+                  Process
+                </>
+              )}
+            </Button>
+          </CardFooter>
+        </div>
+        
+        {showAiPopup && (
+          <AiScribePopup
+            selectedText={selectedText}
+            position={popupPosition}
+            onAction={(action, transformedText) => {
+              // Use transformed text to update content
+              if (textareaRef.current) {
+                const start = textareaRef.current.selectionStart;
+                const end = textareaRef.current.selectionEnd;
+                const newContent = editContent.substring(0, start) + 
+                                  transformedText + 
+                                  editContent.substring(end);
+                setEditContent(newContent);
+                handleUpdate(editTitle, newContent);
               }
             }}
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <Wand2 className="h-3 w-3 mr-1" />
-                Process
-              </>
-            )}
-          </Button>
-        </CardFooter>
-      </div>
+            onClose={closePopup}
+            selectionInfo={textareaRef.current ? {
+              textarea: textareaRef.current,
+              start: textareaRef.current.selectionStart,
+              end: textareaRef.current.selectionEnd,
+              restoreSelection: () => {
+                if (textareaRef.current) {
+                  textareaRef.current.focus();
+                }
+              }
+            } : undefined}
+          />
+        )}
+      </Card>
       
       {showConfirmation && (
         <EntityConfirmationDialog
@@ -267,7 +312,7 @@ function BrainstormCard({
           onClose={() => setShowConfirmation(false)}
         />
       )}
-    </Card>
+    </>
   );
 }
 
