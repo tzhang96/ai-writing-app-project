@@ -29,7 +29,10 @@ export interface AiEnhancedTipTapEditorProps {
   className?: string;
   placeholder?: string;
   aiScribeEnabled: boolean;
-  onAiContent?: (newContent: string) => void;
+  onAiContent?: (content: string, title?: string) => void;
+  chapterId?: string;
+  projectId?: string;
+  contentType?: 'note' | 'beat' | 'text';
   editorRef?: React.MutableRefObject<{
     toggleBold: () => void;
     toggleItalic: () => void;
@@ -53,6 +56,20 @@ interface AITransformationRequest {
   action: AIAction;
   additionalInstructions?: string;
   fullDocument?: string;
+  chapterId?: string;
+  projectId?: string;
+  contentType?: 'note' | 'beat' | 'text';
+}
+
+interface AIGenerateContentRequest {
+  type: string;
+  chapterId: string;
+  projectId: string;
+  currentContent: string;
+}
+
+interface AIGenerateContentResponse {
+  generatedContent: string;
 }
 
 export function AiEnhancedTipTapEditor({
@@ -62,6 +79,9 @@ export function AiEnhancedTipTapEditor({
   placeholder = "Start writing...",
   aiScribeEnabled,
   onAiContent,
+  chapterId,
+  projectId,
+  contentType = 'text',
   editorRef,
 }: AiEnhancedTipTapEditorProps) {
   // State to track if we're in a browser environment (for SSR compatibility)
@@ -78,9 +98,6 @@ export function AiEnhancedTipTapEditor({
   
   // State for AI generation
   const [isGenerating, setIsGenerating] = useState(false);
-  
-  // Add this before the useEditor initialization
-  const selectedRange = useRef<{ from: number, to: number } | null>(null);
   
   // Set isBrowser to true on component mount
   useEffect(() => {
@@ -102,7 +119,7 @@ export function AiEnhancedTipTapEditor({
         alignments: ['left', 'center', 'right'],
         defaultAlignment: 'left',
       }),
-      PersistentHighlight, // Make sure this extension is loaded
+      PersistentHighlight,
     ],
     content: value,
     autofocus: false, // Don't autofocus initially
@@ -225,9 +242,12 @@ export function AiEnhancedTipTapEditor({
     showAiPopup,
     selectedText,
     popupPosition,
-    closePopup: originalClosePopup, // Rename to originalClosePopup
+    closePopup: originalClosePopup,
     selectionInfo
   } = useAiScribe(simulatedTextareaRef as React.RefObject<HTMLTextAreaElement>, aiScribeEnabled);
+  
+  // Add state for tracking selected range for highlighting
+  const selectedRange = useRef<{ from: number, to: number } | null>(null);
   
   // Override closePopup to handle highlights
   const closePopup = useCallback(() => {
@@ -251,15 +271,6 @@ export function AiEnhancedTipTapEditor({
       addHighlight(editor, from, to, 'highlight-gray');
     }
   }, [showAiPopup, editor]);
-  
-  // Initialize AI Write functionality
-  const {
-    showWritePopup,
-    cursorPosition,
-    closeWritePopup,
-    setShowWritePopup,
-    setCursorPosition
-  } = useAiWrite(simulatedTextareaRef as React.RefObject<HTMLTextAreaElement>, aiScribeEnabled);
   
   // Function to apply highlight to current selection
   const applyHighlightToSelection = useCallback(() => {
@@ -308,6 +319,105 @@ export function AiEnhancedTipTapEditor({
     };
   }, [showAiPopup, editor, aiScribeEnabled, applyHighlightToSelection]);
   
+  // Initialize AI Write functionality
+  const {
+    showWritePopup,
+    cursorPosition,
+    closeWritePopup,
+    setShowWritePopup,
+    setCursorPosition
+  } = useAiWrite(simulatedTextareaRef as React.RefObject<HTMLTextAreaElement>, aiScribeEnabled);
+  
+  // Set up event handlers for AI popup triggers
+  useEffect(() => {
+    if (!editor || !aiScribeEnabled) return;
+
+    // Handle mouseup to detect text selection for AI Scribe
+    const handleEditorMouseUp = (event: MouseEvent) => {
+      // Skip if clicking on popups
+      const target = event.target as Node;
+      const scribePopup = document.querySelector('.scribe-popup');
+      const writePopup = document.querySelector('.write-popup');
+      const isPopupClick = scribePopup?.contains(target) || writePopup?.contains(target);
+
+      if (isPopupClick) return;
+
+      // Show popup for selection after short delay to ensure selection is complete
+      setTimeout(() => {
+        if (!editor.state.selection.empty) {
+          console.log('Selection detected - showing AI Scribe popup');
+          
+          // Store the selection range for highlighting
+          const { from, to } = editor.state.selection;
+          selectedRange.current = { from, to };
+          
+          // Update the simulated textarea value with the selected text
+          const selectedContent = editor.state.doc.textBetween(from, to, ' ');
+          if (simulatedTextareaRef.current) {
+            simulatedTextareaRef.current.value = selectedContent;
+            simulatedTextareaRef.current.selectionStart = 0;
+            simulatedTextareaRef.current.selectionEnd = selectedContent.length;
+          }
+          
+          // Calculate popup position based on selection
+          const selection = window.getSelection();
+          if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+            
+            // Trigger the simulated textarea event to show the popup
+            if (simulatedTextareaRef.current) {
+              const mouseEvent = new MouseEvent('mouseup', {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                clientX: rect.right,
+                clientY: rect.bottom
+              });
+              
+              simulatedTextareaRef.current.dispatchEvent(mouseEvent);
+            }
+          }
+        }
+      }, 10);
+    };
+
+    // Handle click to detect cursor position for AI Write
+    const handleEditorClick = (event: MouseEvent) => {
+      // Skip if clicking on popups
+      const target = event.target as Node;
+      const scribePopup = document.querySelector('.scribe-popup');
+      const writePopup = document.querySelector('.write-popup');
+      const isPopupClick = scribePopup?.contains(target) || writePopup?.contains(target);
+
+      if (isPopupClick) return;
+
+      // Show write popup for cursor position when we have an empty selection (just a cursor)
+      if (editor.view.hasFocus() && editor.state.selection.empty) {
+        console.log('Cursor position detected - showing AI Write popup');
+        
+        // Set cursor position for the popup
+        setCursorPosition({
+          top: event.clientY,
+          left: event.clientX
+        });
+        
+        // Show the popup
+        setShowWritePopup(true);
+      }
+    };
+
+    // Add event listeners
+    const editorDOM = editor.view.dom;
+    editorDOM.addEventListener('mouseup', handleEditorMouseUp);
+    editorDOM.addEventListener('click', handleEditorClick);
+
+    return () => {
+      editorDOM.removeEventListener('mouseup', handleEditorMouseUp);
+      editorDOM.removeEventListener('click', handleEditorClick);
+    };
+  }, [editor, aiScribeEnabled, setCursorPosition, setShowWritePopup]);
+  
   // Expose editor methods to parent component
   useEffect(() => {
     if (editor && editorRef) {
@@ -353,97 +463,224 @@ export function AiEnhancedTipTapEditor({
     };
   }, [editor, editorRef]);
   
-  // Add handleEditorMouseUp to detect text selection for AI Scribe
-  useEffect(() => {
-    if (!editor || !aiScribeEnabled) return;
+  // Handler for AI action (expand, summarize, etc.)
+  const handleAiAction = async (action: 'expand' | 'summarize' | 'rephrase' | 'revise', instructions?: string) => {
+    if (!editor) return;
     
-    // Handle mouseup to detect text selection for AI Scribe
-    const handleEditorMouseUp = (event: MouseEvent) => {
-      if (!editor || !aiScribeEnabled) return;
+    // Use stored selection range if available, otherwise use current selection
+    const selRange = selectedRange.current || editor.state.selection;
+    const { from, to } = selRange;
+    const selectedContent = editor.state.doc.textBetween(from, to, ' ');
+    
+    console.log(`AI ${action} for: ${selectedContent}${instructions ? ` with instructions: ${instructions}` : ''}`);
+    
+    try {
+      // Apply a highlight to show processing area
+      if (selectedRange.current) {
+        clearAllHighlights(editor);
+        addHighlight(editor, from, to, 'highlight-processing');
+      } else {
+        highlightSelection(editor, 'highlight-processing');
+      }
       
-      // Get the current selection
-      const { from, to } = editor.state.selection;
-      const text = editor.state.doc.textBetween(from, to, ' ');
-
-      // Only proceed if there's an actual selection
-      if (from !== to && text.trim().length > 0) {
-        console.log('Selected text:', text);
+      setIsGenerating(true);
+      
+      // Get Firebase functions instance
+      const functions = getFunctions(getApp());
+      
+      // Create a callable reference to our Cloud Function
+      const transformText = httpsCallable<AITransformationRequest, { success: boolean; transformedText: string }>(
+        functions,
+        'transformText'
+      );
+      
+      // Call the Cloud Function
+      const result = await transformText({
+        text: selectedContent,
+        action: action as AIAction,
+        additionalInstructions: instructions,
+        fullDocument: editor.getText(),
+        chapterId,
+        projectId,
+        contentType
+      });
+      
+      // Only proceed if editor still exists
+      if (editor && !editor.isDestroyed) {
+        // Clear the processing highlight
+        clearAllHighlights(editor);
         
-        // Update the text in simulatedTextarea
-        if (simulatedTextareaRef.current) {
-          simulatedTextareaRef.current.value = text;
-          simulatedTextareaRef.current.selectionStart = 0;
-          simulatedTextareaRef.current.selectionEnd = text.length;
+        if (result.data.success) {
+          // Remember insertion position for highlighting result
+          const insertionPos = from;
+          
+          // Replace the selected content with the transformed text
+          editor.chain()
+            .focus()
+            .deleteSelection()
+            .insertContent(result.data.transformedText)
+            .run();
+          
+          // Calculate the end position of the inserted text
+          const newTo = insertionPos + result.data.transformedText.length;
+          
+          // Highlight the result temporarily
+          addHighlight(editor, insertionPos, newTo, 'highlight-success');
+          
+          // Select the transformed text
+          editor.chain().setTextSelection({ from: insertionPos, to: newTo }).run();
+          
+          // Reset the stored selection range
+          selectedRange.current = null;
+          
+          // Clear the highlight after a short delay
+          setTimeout(() => {
+            if (editor && !editor.isDestroyed) {
+              clearAllHighlights(editor);
+            }
+          }, 1500);
+          
+          // If a callback is provided, use it
+          if (onAiContent) {
+            onAiContent(editor.getHTML());
+          }
+        } else {
+          console.error('Failed to transform text');
         }
-        
-        // Calculate position for popup based on selection range
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0) {
-          const range = selection.getRangeAt(0);
-          const rect = range.getBoundingClientRect();
+      }
+    } catch (error) {
+      console.error('Error transforming text:', error);
+      
+      // Clean up highlight on error
+      if (editor && !editor.isDestroyed) {
+        clearAllHighlights(editor);
+      }
+    } finally {
+      setIsGenerating(false);
+      closePopup(); // Close popup after action completes
+    }
+  };
+  
+  // Handle AI write at cursor position
+  const handleWrite = async (instructions?: string) => {
+    if (!editor) return;
+    
+    try {
+      const position = editor.state.selection.from;
+      
+      setIsGenerating(true);
+      console.log('AI Write triggered with:', {
+        contentType,
+        chapterId,
+        projectId,
+        instructions,
+        currentContent: editor.getText().substring(0, 100) + '...'
+      });
+      
+      // Get Firebase functions instance
+      const functions = getFunctions(getApp());
+      
+      // Create a callable reference to our Cloud Function
+      const generateAIContent = httpsCallable<AIGenerateContentRequest, AIGenerateContentResponse>(
+        functions,
+        'generateAIContent'
+      );
+      
+      // Call the Cloud Function with proper context
+      console.log('Calling generateAIContent with:', {
+        type: contentType || 'text',
+        chapterId: chapterId || '',
+        projectId: projectId || ''
+      });
+      
+      const result = await generateAIContent({
+        type: contentType || 'text',
+        chapterId: chapterId || '',
+        projectId: projectId || '',
+        currentContent: editor.getText()
+      });
+      
+      console.log('Received AI response:', {
+        success: !!result.data.generatedContent,
+        contentType,
+        responseLength: result.data.generatedContent?.length
+      });
+      
+      // Only proceed if editor still exists and is focused
+      if (editor && !editor.isDestroyed && result.data.generatedContent) {
+        // For beats and notes, parse the title and content
+        if (contentType === 'beat' || contentType === 'note') {
+          const response = result.data.generatedContent;
+          console.log('Attempting to parse note/beat response:', response);
           
-          // Position popup at the end of the selection
-          const popupPos = { 
-            left: rect.right, 
-            top: rect.bottom 
-          };
+          const titleMatch = response.match(/TITLE:\s*(.*)/);
+          const contentMatch = response.match(/CONTENT:\s*(.*)/);
           
-          // Set the selected text and show the popup using the appropriate state setters
-          if (simulatedTextareaRef.current) {
-            // Manually trigger the mouseup event on the simulated textarea
-            // This will in turn properly set up all the states through useAiScribe
-            const mouseEvent = new MouseEvent('mouseup', {
-              bubbles: true,
-              cancelable: true,
-              view: window,
-              clientX: rect.right,
-              clientY: rect.bottom
-            });
-            simulatedTextareaRef.current.dispatchEvent(mouseEvent);
+          console.log('Parsed matches:', { titleMatch, contentMatch });
+          
+          if (titleMatch && contentMatch) {
+            const title = titleMatch[1].trim();
+            const content = contentMatch[1].trim();
+            
+            console.log('Successfully parsed title and content:', { title, content });
+            
+            // If we have a callback, pass both title and content
+            if (onAiContent) {
+              console.log('Calling onAiContent with:', { content, title });
+              onAiContent(content, title);
+              return;
+            }
+          } else {
+            console.warn('Failed to parse title/content from response');
           }
         }
-      }
-    };
-    
-    // Handle click to detect cursor position for AI Write
-    const handleEditorClick = (event: MouseEvent) => {
-      // Skip if clicking on popups
-      const target = event.target as Node;
-      const scribePopup = document.querySelector('.scribe-popup');
-      const writePopup = document.querySelector('.write-popup');
-      const isPopupClick = scribePopup?.contains(target) || writePopup?.contains(target);
-      
-      if (isPopupClick) return;
-      
-      // Show write popup for cursor position
-      if (editor.state.selection.empty) {
-        console.log('Cursor position detected - showing write popup');
         
-        // Set cursor position directly
-        setCursorPosition({
-          top: event.clientY,
-          left: event.clientX
+        // For regular text or if parsing fails, just insert the content
+        console.log('Inserting content directly into editor');
+        
+        // Position cursor at insertion point
+        editor.chain().focus().setTextSelection(position).run();
+        
+        // Store insertion position for highlighting
+        const insertPos = position;
+        
+        // Insert the generated content
+        editor.chain().insertContent(result.data.generatedContent).run();
+        
+        // Calculate the end position of the inserted text
+        const newTo = insertPos + result.data.generatedContent.length;
+        
+        // Highlight the inserted content temporarily
+        addHighlight(editor, insertPos, newTo, 'highlight-success');
+        
+        // Select the inserted text
+        editor.chain().setTextSelection({ from: insertPos, to: newTo }).run();
+        
+        // Clear the highlight after a short delay
+        setTimeout(() => {
+          if (editor && !editor.isDestroyed) {
+            clearAllHighlights(editor);
+          }
+        }, 1500);
+        
+        // If a callback is provided, use it
+        if (onAiContent) {
+          onAiContent(editor.getHTML());
+        }
+      } else {
+        console.error('No content generated or editor not available:', {
+          editorExists: !!editor,
+          editorDestroyed: editor?.isDestroyed,
+          hasContent: !!result.data.generatedContent
         });
-        
-        // Show the write popup
-        setShowWritePopup(true);
       }
-    };
-    
-    // Add event listeners
-    const editorContainer = editorContainerRef.current;
-    if (editorContainer) {
-      editorContainer.addEventListener('mouseup', handleEditorMouseUp);
-      editorContainer.addEventListener('click', handleEditorClick);
+    } catch (error) {
+      console.error('Error in handleWrite:', error);
+    } finally {
+      setIsGenerating(false);
+      closeWritePopup(); // Close popup after operation completes
     }
-    
-    return () => {
-      if (editorContainer) {
-        editorContainer.removeEventListener('mouseup', handleEditorMouseUp);
-        editorContainer.removeEventListener('click', handleEditorClick);
-      }
-    };
-  }, [editor, aiScribeEnabled, setCursorPosition, setShowWritePopup]);
+  };
 
   // Render popups
   const renderPopups = () => {
@@ -492,142 +729,6 @@ export function AiEnhancedTipTapEditor({
     );
   };
   
-  // Update handleAiAction to use the stored selection range
-  const handleAiAction = async (action: 'expand' | 'summarize' | 'rephrase' | 'revise', instructions?: string) => {
-    if (!editor) return;
-    
-    // Use stored selection range if available, otherwise use current selection
-    const selRange = selectedRange.current || editor.state.selection;
-    const { from, to } = selRange;
-    const selectedContent = editor.state.doc.textBetween(from, to, ' ');
-    
-    console.log(`AI ${action} for: ${selectedContent}`);
-    
-    try {
-      setIsGenerating(true);
-      
-      // Get Firebase functions instance
-      const functions = getFunctions(getApp());
-      
-      // Create a callable reference to our Cloud Function
-      const transformText = httpsCallable<AITransformationRequest, { success: boolean; transformedText: string }>(
-        functions,
-        'transformText'
-      );
-      
-      // Call the Cloud Function
-      const result = await transformText({
-        text: selectedContent,
-        action: action as AIAction,
-        additionalInstructions: instructions,
-        fullDocument: editor.getText()
-      });
-      
-      // Only proceed if editor still exists
-      if (editor && !editor.isDestroyed) {
-        if (result.data.success) {
-          // Remember insertion position
-          const insertionPos = from;
-          
-          // Replace the selected content with the transformed text
-          editor.chain()
-            .focus()
-            .deleteSelection()
-            .insertContent(result.data.transformedText)
-            .run();
-          
-          // Calculate the end position of the inserted text
-          const newTo = insertionPos + result.data.transformedText.length;
-          
-          // Clear all highlights since the action is complete
-          clearAllHighlights(editor);
-          
-          // Select the transformed text
-          editor.chain().setTextSelection({ from: insertionPos, to: newTo }).run();
-          
-          // Reset the stored selection range
-          selectedRange.current = null;
-          
-          // If a callback is provided, use it
-          if (onAiContent) {
-            onAiContent(editor.getHTML());
-          }
-        } else {
-          console.error('Failed to transform text');
-          // Clear highlights on failure
-          clearAllHighlights(editor);
-        }
-      }
-    } catch (error) {
-      console.error('Error transforming text:', error);
-      
-      // Clean up highlight on error
-      if (editor && !editor.isDestroyed) {
-        clearAllHighlights(editor);
-      }
-    } finally {
-      setIsGenerating(false);
-      closePopup(); // Close popup after action completes
-    }
-  };
-  
-  // Handle AI write at cursor position
-  const handleWrite = async (instructions?: string) => {
-    if (!editor) return;
-    
-    try {
-      const position = editor.state.selection.from;
-      
-      setIsGenerating(true);
-      
-      // Get Firebase functions instance
-      const functions = getFunctions(getApp());
-      
-      // Create a callable reference to our Cloud Function
-      const transformText = httpsCallable<AITransformationRequest, { success: boolean; transformedText: string }>(
-        functions,
-        'transformText'
-      );
-      
-      // Call the Cloud Function
-      const result = await transformText({
-        text: instructions || "Generate creative content",
-        action: 'expand',
-        additionalInstructions: "Generate text that can be inserted at the current cursor position.",
-        fullDocument: editor.getText()
-      });
-      
-      // Only proceed if editor still exists and is focused
-      if (editor && !editor.isDestroyed) {
-        if (result.data.success) {
-          // Position cursor at the original position first
-          editor.chain().focus().setTextSelection(position).run();
-          
-          // Insert the content
-          editor.chain().insertContent(result.data.transformedText).run();
-          
-          // Calculate the end position of the inserted text
-          const newTo = position + result.data.transformedText.length;
-          
-          // Select the newly inserted text
-          editor.chain().setTextSelection({ from: position, to: newTo }).run();
-          
-          // If a callback is provided, use it
-          if (onAiContent) {
-            onAiContent(editor.getHTML());
-          }
-        } else {
-          console.error('Failed to generate text');
-        }
-      }
-    } catch (error) {
-      console.error('Error generating text:', error);
-    } finally {
-      setIsGenerating(false);
-      closeWritePopup();
-    }
-  };
-  
   if (!editor) {
     return null;
   }
@@ -635,35 +736,13 @@ export function AiEnhancedTipTapEditor({
   return (
     <div 
       ref={editorContainerRef} 
-      className={cn("tiptap-editor-container relative border border-input rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2", className)}
-      onClick={(e) => {
-        // Only focus if we're not already focused and not clicking on a popup
-        const target = e.target as Node;
-        const scribePopup = document.querySelector('.scribe-popup');
-        const writePopup = document.querySelector('.write-popup');
-        const isPopupClick = scribePopup?.contains(target) || writePopup?.contains(target);
-        
-        if (!isPopupClick && editor && !editor.isFocused) {
-          console.log('Focusing editor from container click');
-          // Focus the editor
-          editor.commands.focus();
-          
-          try {
-            // Try to set cursor at click position
-            const view = editor.view;
-            const pos = view.posAtCoords({ left: e.clientX, top: e.clientY });
-            
-            if (pos) {
-              editor.commands.setTextSelection(pos.pos);
-            }
-          } catch (error) {
-            console.warn('Error positioning cursor:', error);
-          }
-        }
-      }}
+      className={cn("tiptap-editor-container relative border border-input rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2", 
+        editor.isFocused ? "ring-2 ring-offset-1 ring-primary/10" : "",
+        className
+      )}
     >
       <EditorContent 
-        className="min-h-[200px] w-full overflow-auto"
+        className="prose max-w-none w-full min-h-[200px] p-4" 
         editor={editor} 
       />
       {renderPopups()}

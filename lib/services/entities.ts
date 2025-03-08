@@ -658,7 +658,7 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
           docRef = doc(collection(db, collectionName), existingCharacter.id);
           
           // Create custom fields for character attributes if they exist
-          const customFieldsToCreate = [];
+          const customFieldsToCreate: Omit<EntityField, 'id' | 'placeholder' | 'isDefault'>[] = [];
           
           // Always check if we need the relationships field
           if (!customFieldsToCreate.some(f => f.key === 'relationships')) {
@@ -729,7 +729,7 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
 
           // Store the structured relationship data separately
           const existingRelData = existingCharacter.relationshipData || [];
-          const newRelData = entity.data.relationships?.filter(newRel => 
+          const newRelData = entity.data.relationships?.filter((newRel: CharacterRelationship) => 
             !existingRelData.some(existingRel => 
               existingRel.targetName === newRel.targetName && 
               existingRel.type === newRel.type && 
@@ -766,7 +766,7 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
           docRef = doc(collection(db, collectionName));
           
           // Handle new character creation
-          const customFieldsToCreate = [];
+          const customFieldsToCreate: Omit<EntityField, 'id' | 'placeholder' | 'isDefault'>[] = [];
           
           // Always check if we need the relationships field
           if (!customFieldsToCreate.some(f => f.key === 'relationships')) {
@@ -849,7 +849,7 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
           docRef = doc(collection(db, collectionName), existingLocation.id);
           
           // Create custom fields for location attributes if they exist
-          const customFieldsToCreate = [];
+          const customFieldsToCreate: Omit<EntityField, 'id' | 'placeholder' | 'isDefault'>[] = [];
           
           if (entity.data.attributes) {
             if (entity.data.attributes.type) {
@@ -906,7 +906,7 @@ export async function saveEntities(projectId: string, entities: EntityToSave[]):
           
           // Handle new location creation
           if (entity.data.attributes) {
-            const customFieldsToCreate = [];
+            const customFieldsToCreate: Omit<EntityField, 'id' | 'placeholder' | 'isDefault'>[] = [];
             
             if (entity.data.attributes.type) {
               customFieldsToCreate.push({

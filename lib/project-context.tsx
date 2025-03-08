@@ -11,6 +11,7 @@ export interface Project {
   coverImage?: string;
   createdAt: Date | string;
   updatedAt: Date | string;
+  lastEdited?: Date | string;
 }
 
 interface ProjectsContextType {

@@ -104,7 +104,9 @@ export function ProjectList() {
         title: data.title,
         description: data.description,
         coverImage: data.coverImage,
-        lastEdited: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastEdited: new Date()
       });
       console.log('Created project:', newProject);
       
@@ -169,7 +171,9 @@ export function ProjectList() {
         title: data.title,
         description: data.description,
         coverImage: data.coverImage,
-        lastEdited: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastEdited: new Date()
       });
       
       setProjects(projects.map(project => 
@@ -179,7 +183,9 @@ export function ProjectList() {
               title: data.title,
               description: data.description,
               coverImage: data.coverImage,
-              lastEdited: new Date(),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              lastEdited: new Date()
             }
           : project
       ));
