@@ -26,6 +26,7 @@ export async function createProject(project: Omit<Project, 'id'>): Promise<Proje
       description: project.description,
       createdAt: serverTimestamp(),
       lastEdited: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     };
 
     // Only add coverImage if it exists
@@ -52,6 +53,7 @@ export async function createProject(project: Omit<Project, 'id'>): Promise<Proje
       coverImage: data.coverImage || undefined,
       lastEdited: data.lastEdited.toDate(),
       createdAt: data.createdAt?.toDate(),
+      updatedAt: data.updatedAt?.toDate() || data.createdAt?.toDate(),
     };
   } catch (error) {
     console.error('Error creating project:', error);
@@ -65,6 +67,7 @@ export async function updateProject(projectId: string, data: Partial<Project>) {
     await updateDoc(projectRef, {
       ...data,
       lastEdited: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
   } catch (error) {
     console.error('Error updating project:', error);
@@ -95,6 +98,7 @@ export async function getProject(projectId: string): Promise<Project | null> {
         lastEdited: data.lastEdited.toDate(),
         coverImage: data.coverImage,
         createdAt: data.createdAt?.toDate(),
+        updatedAt: data.updatedAt?.toDate() || data.createdAt?.toDate(),
       };
     }
     return null;
@@ -117,6 +121,7 @@ export async function getAllProjects(): Promise<Project[]> {
         lastEdited: data.lastEdited.toDate(),
         coverImage: data.coverImage,
         createdAt: data.createdAt?.toDate(),
+        updatedAt: data.updatedAt?.toDate() || data.createdAt?.toDate(),
       };
     });
   } catch (error) {

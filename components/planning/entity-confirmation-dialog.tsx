@@ -227,7 +227,7 @@ export function EntityConfirmationDialog({
                 <div className="mt-2">
                   <div className="text-sm font-medium">• New character connections:</div>
                   <div className="text-sm ml-4 text-muted-foreground">
-                    {newConnections.map(conn =>
+                    {newConnections.map((conn: LocationCharacterConnection) =>
                       `${conn.characterName}: ${conn.connection}`
                     ).join('\n')}
                   </div>

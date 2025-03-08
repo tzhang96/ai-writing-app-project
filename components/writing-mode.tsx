@@ -57,9 +57,16 @@ export function WritingMode({ chatSidebarCollapsed, projectId, aiScribeEnabled }
           // For real projects, load from Firestore
           const projectChapters = await getProjectChapters(projectId);
           if (projectChapters.length > 0) {
-            setChapters(projectChapters);
+            // Transform Chapter[] to ChapterWithRelationships[]
+            const chaptersWithRelationships = await Promise.all(
+              projectChapters.map(async chapter => {
+                return getChapterWithRelationships(chapter.id);
+              })
+            );
+            
+            setChapters(chaptersWithRelationships);
             if (!activeChapterId) {
-              setActiveChapterId(projectChapters[0].id);
+              setActiveChapterId(chaptersWithRelationships[0].id);
             }
           }
         }

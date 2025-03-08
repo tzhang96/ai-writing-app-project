@@ -13,6 +13,7 @@ import { useChat, Message } from '@/lib/chat-context';
 
 interface ChatSidebarProps {
   className?: string;
+  isCollapsed?: boolean;
 }
 
 // Number of previous messages to include for context
@@ -29,8 +30,8 @@ function LoadingDots() {
   );
 }
 
-export function ChatSidebar({ className = "" }: ChatSidebarProps) {
-  const { messages, setMessages, isLoading, setIsLoading, isCollapsed } = useChat();
+export function ChatSidebar({ className = "", isCollapsed = false }: ChatSidebarProps) {
+  const { messages, setMessages, isLoading, setIsLoading } = useChat();
   const [inputValue, setInputValue] = useState('');
 
   // Save messages to localStorage whenever they change
