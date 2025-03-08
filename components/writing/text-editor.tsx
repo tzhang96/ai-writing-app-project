@@ -18,8 +18,7 @@ import {
   Heading2,
   Heading3,
   Undo,
-  Redo,
-  Search
+  Redo
 } from 'lucide-react';
 import { AiEnhancedTipTapEditor } from '@/components/ui/ai-enhanced-tiptap-editor';
 
@@ -281,12 +280,6 @@ export function TextEditor({ activeChapterId, aiScribeEnabled, activeChapter, on
             onClick={() => editorRef.current?.redo()}
           >
             <Redo className="h-4 w-4" />
-          </Button>
-          
-          <Separator orientation="vertical" className="h-6" />
-          
-          <Button variant="ghost" size="icon">
-            <Search className="h-4 w-4" />
           </Button>
         </div>
       </div>

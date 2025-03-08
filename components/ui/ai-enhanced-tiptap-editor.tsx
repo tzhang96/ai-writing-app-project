@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { EditorContent, useEditor, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getApp } from 'firebase/app';
 import PersistentHighlight from "./extensions/PersistentHighlight";
-import { highlightSelection, clearAllHighlights } from "./extensions/highlightUtils";
+import { highlightSelection, clearAllHighlights, addHighlight } from "./extensions/highlightUtils";
 import '@/styles/tiptap.css'; // Import TipTap styling
 
 export interface AiEnhancedTipTapEditorProps {
@@ -79,6 +79,9 @@ export function AiEnhancedTipTapEditor({
   // State for AI generation
   const [isGenerating, setIsGenerating] = useState(false);
   
+  // Add this before the useEditor initialization
+  const selectedRange = useRef<{ from: number, to: number } | null>(null);
+  
   // Set isBrowser to true on component mount
   useEffect(() => {
     setIsBrowser(true);
@@ -99,7 +102,7 @@ export function AiEnhancedTipTapEditor({
         alignments: ['left', 'center', 'right'],
         defaultAlignment: 'left',
       }),
-      PersistentHighlight,
+      PersistentHighlight, // Make sure this extension is loaded
     ],
     content: value,
     autofocus: false, // Don't autofocus initially
@@ -222,9 +225,32 @@ export function AiEnhancedTipTapEditor({
     showAiPopup,
     selectedText,
     popupPosition,
-    closePopup,
+    closePopup: originalClosePopup, // Rename to originalClosePopup
     selectionInfo
   } = useAiScribe(simulatedTextareaRef as React.RefObject<HTMLTextAreaElement>, aiScribeEnabled);
+  
+  // Override closePopup to handle highlights
+  const closePopup = useCallback(() => {
+    // Reset the stored selection range
+    selectedRange.current = null;
+    
+    // Clear highlights when popup is closed
+    if (editor) {
+      clearAllHighlights(editor);
+    }
+    
+    // Call the original closePopup
+    originalClosePopup();
+  }, [editor, originalClosePopup]);
+  
+  // Apply highlight when the popup is shown
+  useEffect(() => {
+    if (showAiPopup && editor && selectedRange.current) {
+      const { from, to } = selectedRange.current;
+      clearAllHighlights(editor);
+      addHighlight(editor, from, to, 'highlight-gray');
+    }
+  }, [showAiPopup, editor]);
   
   // Initialize AI Write functionality
   const {
@@ -235,79 +261,52 @@ export function AiEnhancedTipTapEditor({
     setCursorPosition
   } = useAiWrite(simulatedTextareaRef as React.RefObject<HTMLTextAreaElement>, aiScribeEnabled);
   
-  // Set up event handlers for AI popup triggers
+  // Function to apply highlight to current selection
+  const applyHighlightToSelection = useCallback(() => {
+    if (!editor) return;
+    
+    const { from, to } = editor.state.selection;
+    if (from === to) return; // No selection
+    
+    // Store the selection range
+    selectedRange.current = { from, to };
+    
+    // Apply highlight
+    clearAllHighlights(editor);
+    addHighlight(editor, from, to, 'highlight-gray');
+    
+    // Force editor to update
+    editor.view.dispatch(editor.state.tr);
+  }, [editor]);
+
+  // Add event listeners to detect when popup appears
   useEffect(() => {
+    // Only run if popups are enabled and editor exists
     if (!editor || !aiScribeEnabled) return;
     
-    // Handle mouseup to detect text selection for AI Scribe
-    const handleEditorMouseUp = (event: MouseEvent) => {
-      // Skip if clicking on popups
-      const target = event.target as Node;
-      const scribePopup = document.querySelector('.scribe-popup');
-      const writePopup = document.querySelector('.write-popup');
-      const isPopupClick = scribePopup?.contains(target) || writePopup?.contains(target);
-      
-      if (isPopupClick) return;
-      
-      // Show popup for selection
-      setTimeout(() => {
-        if (!editor.state.selection.empty) {
-          console.log('Selection detected - showing AI Scribe popup');
-          
-          if (simulatedTextareaRef.current) {
-            const mouseEvent = new MouseEvent('mouseup', {
-              bubbles: true,
-              cancelable: true,
-              view: window,
-              clientX: event.clientX,
-              clientY: event.clientY
-            });
-            
-            simulatedTextareaRef.current.dispatchEvent(mouseEvent);
-          }
+    // Listen for when popup becomes visible
+    const handlePopupVisible = () => {
+      if (showAiPopup) {
+        // Apply highlight when popup appears
+        applyHighlightToSelection();
+      } else {
+        // Clear highlight when popup disappears
+        if (editor) {
+          clearAllHighlights(editor);
         }
-      }, 10);
-    };
-    
-    // Handle click to detect cursor position for AI Write
-    const handleEditorClick = (event: MouseEvent) => {
-      // Skip if clicking on popups
-      const target = event.target as Node;
-      const scribePopup = document.querySelector('.scribe-popup');
-      const writePopup = document.querySelector('.write-popup');
-      const isPopupClick = scribePopup?.contains(target) || writePopup?.contains(target);
-      
-      if (isPopupClick) return;
-      
-      // Show write popup for cursor position
-      if (editor.state.selection.empty) {
-        console.log('Cursor position detected - showing write popup');
-        
-        // Set cursor position directly
-        setCursorPosition({
-          top: event.clientY,
-          left: event.clientX
-        });
-        
-        // Show the write popup
-        setShowWritePopup(true);
       }
     };
     
-    // Add event listeners
-    const editorContainer = editorContainerRef.current;
-    if (editorContainer) {
-      editorContainer.addEventListener('mouseup', handleEditorMouseUp);
-      editorContainer.addEventListener('click', handleEditorClick);
-    }
+    // Watch for popup state changes
+    handlePopupVisible();
     
     return () => {
-      if (editorContainer) {
-        editorContainer.removeEventListener('mouseup', handleEditorMouseUp);
-        editorContainer.removeEventListener('click', handleEditorClick);
+      // Clean up highlights when unmounting
+      if (editor) {
+        clearAllHighlights(editor);
       }
     };
-  }, [editor, aiScribeEnabled, setCursorPosition, setShowWritePopup]);
+  }, [showAiPopup, editor, aiScribeEnabled, applyHighlightToSelection]);
   
   // Expose editor methods to parent component
   useEffect(() => {
@@ -354,19 +353,157 @@ export function AiEnhancedTipTapEditor({
     };
   }, [editor, editorRef]);
   
-  // Handler for AI action (expand, summarize, etc.)
+  // Add handleEditorMouseUp to detect text selection for AI Scribe
+  useEffect(() => {
+    if (!editor || !aiScribeEnabled) return;
+    
+    // Handle mouseup to detect text selection for AI Scribe
+    const handleEditorMouseUp = (event: MouseEvent) => {
+      if (!editor || !aiScribeEnabled) return;
+      
+      // Get the current selection
+      const { from, to } = editor.state.selection;
+      const text = editor.state.doc.textBetween(from, to, ' ');
+
+      // Only proceed if there's an actual selection
+      if (from !== to && text.trim().length > 0) {
+        console.log('Selected text:', text);
+        
+        // Update the text in simulatedTextarea
+        if (simulatedTextareaRef.current) {
+          simulatedTextareaRef.current.value = text;
+          simulatedTextareaRef.current.selectionStart = 0;
+          simulatedTextareaRef.current.selectionEnd = text.length;
+        }
+        
+        // Calculate position for popup based on selection range
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          
+          // Position popup at the end of the selection
+          const popupPos = { 
+            left: rect.right, 
+            top: rect.bottom 
+          };
+          
+          // Set the selected text and show the popup using the appropriate state setters
+          if (simulatedTextareaRef.current) {
+            // Manually trigger the mouseup event on the simulated textarea
+            // This will in turn properly set up all the states through useAiScribe
+            const mouseEvent = new MouseEvent('mouseup', {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+              clientX: rect.right,
+              clientY: rect.bottom
+            });
+            simulatedTextareaRef.current.dispatchEvent(mouseEvent);
+          }
+        }
+      }
+    };
+    
+    // Handle click to detect cursor position for AI Write
+    const handleEditorClick = (event: MouseEvent) => {
+      // Skip if clicking on popups
+      const target = event.target as Node;
+      const scribePopup = document.querySelector('.scribe-popup');
+      const writePopup = document.querySelector('.write-popup');
+      const isPopupClick = scribePopup?.contains(target) || writePopup?.contains(target);
+      
+      if (isPopupClick) return;
+      
+      // Show write popup for cursor position
+      if (editor.state.selection.empty) {
+        console.log('Cursor position detected - showing write popup');
+        
+        // Set cursor position directly
+        setCursorPosition({
+          top: event.clientY,
+          left: event.clientX
+        });
+        
+        // Show the write popup
+        setShowWritePopup(true);
+      }
+    };
+    
+    // Add event listeners
+    const editorContainer = editorContainerRef.current;
+    if (editorContainer) {
+      editorContainer.addEventListener('mouseup', handleEditorMouseUp);
+      editorContainer.addEventListener('click', handleEditorClick);
+    }
+    
+    return () => {
+      if (editorContainer) {
+        editorContainer.removeEventListener('mouseup', handleEditorMouseUp);
+        editorContainer.removeEventListener('click', handleEditorClick);
+      }
+    };
+  }, [editor, aiScribeEnabled, setCursorPosition, setShowWritePopup]);
+
+  // Render popups
+  const renderPopups = () => {
+    if (!isBrowser) return null;
+    
+    return createPortal(
+      <TooltipProvider>
+        {/* AI Scribe Popup */}
+        {showAiPopup && selectedText && (
+          <AiScribePopup
+            selectedText={selectedText}
+            position={popupPosition}
+            onAction={(action, instructions) => {
+              // When an action is triggered, use the stored selection
+              handleAiAction(action, instructions);
+            }}
+            onClose={closePopup}
+            selectionInfo={selectionInfo}
+            className="scribe-popup"
+          />
+        )}
+        
+        {/* AI Write Popup */}
+        {showWritePopup && (
+          <AiWritePopup
+            position={cursorPosition}
+            onWrite={handleWrite}
+            onClose={closeWritePopup}
+            className="write-popup"
+          />
+        )}
+        
+        {isGenerating && (
+          <div className="fixed top-4 right-4 bg-black/75 text-white px-3 py-2 rounded-md flex items-center gap-2 z-50">
+            <span className="animate-spin">
+              <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </span>
+            <span>Generating...</span>
+          </div>
+        )}
+      </TooltipProvider>,
+      document.body
+    );
+  };
+  
+  // Update handleAiAction to use the stored selection range
   const handleAiAction = async (action: 'expand' | 'summarize' | 'rephrase' | 'revise', instructions?: string) => {
     if (!editor) return;
     
-    const { from, to } = editor.state.selection;
+    // Use stored selection range if available, otherwise use current selection
+    const selRange = selectedRange.current || editor.state.selection;
+    const { from, to } = selRange;
     const selectedContent = editor.state.doc.textBetween(from, to, ' ');
     
-    console.log(`AI ${action} for: ${selectedContent}${instructions ? ` with instructions: ${instructions}` : ''}`);
+    console.log(`AI ${action} for: ${selectedContent}`);
     
     try {
-      // Apply a highlight to show processing area
-      highlightSelection(editor, 'highlight-gray');
-      
       setIsGenerating(true);
       
       // Get Firebase functions instance
@@ -386,25 +523,39 @@ export function AiEnhancedTipTapEditor({
         fullDocument: editor.getText()
       });
       
-      // Only proceed if editor still exists and is focused
+      // Only proceed if editor still exists
       if (editor && !editor.isDestroyed) {
-        // Remove the processing highlight
-        clearAllHighlights(editor);
-        
         if (result.data.success) {
+          // Remember insertion position
+          const insertionPos = from;
+          
           // Replace the selected content with the transformed text
           editor.chain()
             .focus()
             .deleteSelection()
             .insertContent(result.data.transformedText)
             .run();
-            
+          
+          // Calculate the end position of the inserted text
+          const newTo = insertionPos + result.data.transformedText.length;
+          
+          // Clear all highlights since the action is complete
+          clearAllHighlights(editor);
+          
+          // Select the transformed text
+          editor.chain().setTextSelection({ from: insertionPos, to: newTo }).run();
+          
+          // Reset the stored selection range
+          selectedRange.current = null;
+          
           // If a callback is provided, use it
           if (onAiContent) {
             onAiContent(editor.getHTML());
           }
         } else {
           console.error('Failed to transform text');
+          // Clear highlights on failure
+          clearAllHighlights(editor);
         }
       }
     } catch (error) {
@@ -416,6 +567,7 @@ export function AiEnhancedTipTapEditor({
       }
     } finally {
       setIsGenerating(false);
+      closePopup(); // Close popup after action completes
     }
   };
   
@@ -454,6 +606,12 @@ export function AiEnhancedTipTapEditor({
           // Insert the content
           editor.chain().insertContent(result.data.transformedText).run();
           
+          // Calculate the end position of the inserted text
+          const newTo = position + result.data.transformedText.length;
+          
+          // Select the newly inserted text
+          editor.chain().setTextSelection({ from: position, to: newTo }).run();
+          
           // If a callback is provided, use it
           if (onAiContent) {
             onAiContent(editor.getHTML());
@@ -466,51 +624,8 @@ export function AiEnhancedTipTapEditor({
       console.error('Error generating text:', error);
     } finally {
       setIsGenerating(false);
+      closeWritePopup();
     }
-  };
-  
-  // Render popups
-  const renderPopups = () => {
-    if (!isBrowser) return null;
-    
-    return createPortal(
-      <TooltipProvider>
-        {/* AI Scribe Popup */}
-        {showAiPopup && selectedText && (
-          <AiScribePopup
-            selectedText={selectedText}
-            position={popupPosition}
-            onAction={handleAiAction}
-            onClose={closePopup}
-            selectionInfo={selectionInfo}
-            className="scribe-popup"
-          />
-        )}
-        
-        {/* AI Write Popup */}
-        {showWritePopup && (
-          <AiWritePopup
-            position={cursorPosition}
-            onWrite={handleWrite}
-            onClose={closeWritePopup}
-            className="write-popup"
-          />
-        )}
-        
-        {isGenerating && (
-          <div className="fixed top-4 right-4 bg-black/75 text-white px-3 py-2 rounded-md flex items-center gap-2 z-50">
-            <span className="animate-spin">
-              <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            </span>
-            <span>Generating...</span>
-          </div>
-        )}
-      </TooltipProvider>,
-      document.body
-    );
   };
   
   if (!editor) {

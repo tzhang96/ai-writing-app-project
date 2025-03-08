@@ -12,7 +12,9 @@ export const addHighlight = (
   to: number,
   highlightClass: string = 'highlight-gray'
 ): void => {
-  if (!editor || from === to) return;
+  if (!editor || from === to) {
+    return;
+  }
   
   // Get the extension
   const extension = editor.extensionManager.extensions.find(
@@ -51,14 +53,18 @@ export const highlightSelection = (
  * Clears all highlights from the editor
  */
 export const clearAllHighlights = (editor: Editor): void => {
-  if (!editor) return;
+  if (!editor) {
+    return;
+  }
   
   // Get the extension
   const extension = editor.extensionManager.extensions.find(
     (ext) => ext.name === 'persistentHighlight'
   );
   
-  if (!extension) return;
+  if (!extension) {
+    return;
+  }
   
   // Clear all highlights
   extension.storage.highlights = [];

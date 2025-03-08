@@ -23,6 +23,44 @@
   background-color: rgba(125, 125, 125, 0.3);
   border-radius: 2px;
   padding: 1px 0;
+  /* Remove the dotted border */
+}
+
+/* Processing highlight */
+.tiptap-editor-container .ProseMirror .highlight-processing {
+  background-color: rgba(125, 125, 125, 0.3);
+  border-radius: 2px;
+  padding: 1px 0;
+  border-bottom: 1px dashed #666;
+  animation: pulse 2s infinite;
+}
+
+/* Result highlight */
+.tiptap-editor-container .ProseMirror .highlight-result {
+  background-color: rgba(132, 204, 22, 0.2);
+  border-radius: 2px;
+  padding: 1px 0;
+  transition: background-color 0.5s ease;
+}
+
+/* Error highlight */
+.tiptap-editor-container .ProseMirror .highlight-error {
+  background-color: rgba(239, 68, 68, 0.2);
+  border-radius: 2px;
+  padding: 1px 0;
+}
+
+/* Pulse animation for processing highlight */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 .tiptap-editor-container .ProseMirror p {
