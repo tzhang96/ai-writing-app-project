@@ -35,6 +35,17 @@ interface AITransformationRequest {
   fullDocument?: string;
 }
 
+interface AIGenerateContentRequest {
+  type: string;
+  chapterId: string;
+  projectId: string;
+  currentContent: string;
+}
+
+interface AIGenerateContentResponse {
+  generatedContent: string;
+}
+
 export const AiEnhancedTextarea = React.forwardRef<HTMLTextAreaElement, AiEnhancedTextareaProps>(
   ({ aiScribeEnabled, onAiContent, className, chapterId, projectId, contentType, ...props }, forwardedRef) => {
     // Create local ref if one is not provided
@@ -115,31 +126,87 @@ export const AiEnhancedTextarea = React.forwardRef<HTMLTextAreaElement, AiEnhanc
       setError(null);
       
       try {
+        console.log('AI Write triggered with:', {
+          contentType,
+          chapterId,
+          projectId,
+          currentContent: textareaRef.current.value
+        });
+        
         // Get Firebase functions instance
         const functions = getFunctions(getApp());
         
         // Create a callable reference to our Cloud Function
-        const transformText = httpsCallable<AITransformationRequest, { success: boolean; transformedText: string }>(
+        const generateAIContent = httpsCallable<AIGenerateContentRequest, AIGenerateContentResponse>(
           functions,
-          'transformText'
+          'generateAIContent'
         );
         
         // Call the Cloud Function
-        const result = await transformText({
-          text: textareaRef.current?.value || "Generate content",
-          action: 'expand',
-          additionalInstructions: `Create content for a ${contentType || "text"} in a writing project. ${
-            projectId ? `This is for project ID: ${projectId}.` : ''
-          } ${
-            chapterId ? `This is for chapter ID: ${chapterId}.` : ''
-          }`
+        console.log('Calling generateAIContent with:', {
+          type: contentType || 'text',
+          chapterId: chapterId || '',
+          projectId: projectId || ''
         });
         
-        if (result.data.success) {
-          // Pass the generated content to the handler
-          handleAiGeneratedContent(result.data.transformedText);
+        const result = await generateAIContent({
+          type: contentType || 'text',
+          chapterId: chapterId || '',
+          projectId: projectId || '',
+          currentContent: textareaRef.current.value
+        });
+        
+        console.log('Received AI response:', {
+          success: !!result.data.generatedContent,
+          contentType,
+          responseLength: result.data.generatedContent?.length,
+          response: result.data.generatedContent
+        });
+        
+        if (result.data.generatedContent) {
+          // For beats and notes, parse the title and content
+          if (contentType === 'beat' || contentType === 'note') {
+            const response = result.data.generatedContent;
+            console.log('Attempting to parse note/beat response:', response);
+            
+            try {
+              // Try parsing the response as JSON
+              const parsed = JSON.parse(response);
+              console.log('Parsed JSON:', parsed);
+              
+              if (parsed.title && parsed.content) {
+                console.log('Found title and content in JSON:', { title: parsed.title, content: parsed.content });
+                if (onAiContent) {
+                  onAiContent(parsed.content, parsed.title);
+                  return;
+                }
+              } else {
+                console.warn('JSON parsed but missing title or content:', parsed);
+              }
+            } catch (e) {
+              console.warn('Failed to parse JSON, trying regex:', e);
+              // If JSON parsing fails, try regex as fallback
+              const titleMatch = response.match(/TITLE:\s*(.*)/);
+              const contentMatch = response.match(/CONTENT:\s*(.*)/);
+              
+              if (titleMatch && contentMatch) {
+                const title = titleMatch[1].trim();
+                const content = contentMatch[1].trim();
+                
+                if (onAiContent) {
+                  onAiContent(content, title);
+                  return;
+                }
+              } else {
+                console.warn('Failed to find title/content with regex');
+              }
+            }
+          }
+          
+          // For regular text or if parsing fails, just use the content directly
+          handleAiGeneratedContent(result.data.generatedContent);
         } else {
-          throw new Error('Failed to generate content');
+          throw new Error('No content generated');
         }
       } catch (error) {
         console.error('Error generating content:', error);
@@ -220,39 +287,54 @@ export const AiEnhancedTextarea = React.forwardRef<HTMLTextAreaElement, AiEnhanc
                   const functions = getFunctions(getApp());
                   
                   // Create a callable reference to our Cloud Function
-                  const transformText = httpsCallable<AITransformationRequest, { success: boolean; transformedText: string }>(
+                  const generateAIContent = httpsCallable<AIGenerateContentRequest, AIGenerateContentResponse>(
                     functions,
-                    'transformText'
+                    'generateAIContent'
                   );
                   
                   // Call the Cloud Function
-                  const result = await transformText({
-                    text: instructions,
-                    action: 'expand',
-                    additionalInstructions: `Generate creative content for a ${contentType || 'text'} based on these instructions.`,
-                    fullDocument: textareaRef.current?.value
+                  const result = await generateAIContent({
+                    type: contentType || 'text',
+                    chapterId: chapterId || '',
+                    projectId: projectId || '',
+                    currentContent: textareaRef.current?.value || ''
                   });
                   
-                  if (result.data.success) {
-                    if (contentType === 'note' || contentType === 'beat') {
+                  if (result.data.generatedContent) {
+                    // For beats and notes, parse the title and content
+                    if (contentType === 'beat' || contentType === 'note') {
+                      const response = result.data.generatedContent;
+                      
+                      // Try parsing as JSON first
                       try {
-                        // For backward compatibility, try to parse the result as JSON
-                        const { title, content } = JSON.parse(result.data.transformedText);
-                        if (onAiContent) {
-                          onAiContent(content, title);
-                        } else {
-                          handleAiGeneratedContent(content);
+                        const parsed = JSON.parse(response);
+                        if (parsed.title && parsed.content) {
+                          if (onAiContent) {
+                            onAiContent(parsed.content, parsed.title);
+                            return;
+                          }
                         }
                       } catch (e) {
-                        // If parsing fails, just use the text directly
-                        handleAiGeneratedContent(result.data.transformedText);
+                        // If JSON parsing fails, try regex
+                        const titleMatch = response.match(/TITLE:\s*(.*)/);
+                        const contentMatch = response.match(/CONTENT:\s*(.*)/);
+                        
+                        if (titleMatch && contentMatch) {
+                          const title = titleMatch[1].trim();
+                          const content = contentMatch[1].trim();
+                          
+                          if (onAiContent) {
+                            onAiContent(content, title);
+                            return;
+                          }
+                        }
                       }
-                    } else {
-                      // For regular text, just use the content directly
-                      handleAiGeneratedContent(result.data.transformedText);
                     }
+                    
+                    // For regular text or if parsing fails, just use the content directly
+                    handleAiGeneratedContent(result.data.generatedContent);
                   } else {
-                    throw new Error('Failed to generate text');
+                    throw new Error('No content generated');
                   }
                 } catch (error) {
                   console.error('Error generating AI content:', error);
@@ -285,41 +367,7 @@ export const AiEnhancedTextarea = React.forwardRef<HTMLTextAreaElement, AiEnhanc
               variant="ghost"
               className="h-7 w-7 p-0"
               disabled={isGenerating}
-              onClick={async () => {
-                setIsGenerating(true);
-                try {
-                  // Get Firebase functions instance
-                  const functions = getFunctions(getApp());
-                  
-                  // Create a callable reference to our Cloud Function
-                  const transformText = httpsCallable<AITransformationRequest, { success: boolean; transformedText: string }>(
-                    functions,
-                    'transformText'
-                  );
-                  
-                  // Call the Cloud Function
-                  const result = await transformText({
-                    text: textareaRef.current?.value || "Generate content",
-                    action: 'expand',
-                    additionalInstructions: `Create content for a ${contentType || "text"} in a writing project. ${
-                      projectId ? `This is for project ID: ${projectId}.` : ''
-                    } ${
-                      chapterId ? `This is for chapter ID: ${chapterId}.` : ''
-                    }`
-                  });
-                  
-                  if (result.data.success) {
-                    // Pass the generated content to the handler
-                    handleAiGeneratedContent(result.data.transformedText);
-                  } else {
-                    throw new Error('Failed to generate content');
-                  }
-                } catch (error) {
-                  console.error('Error generating content:', error);
-                } finally {
-                  setIsGenerating(false);
-                }
-              }}
+              onClick={handleGenerateContent}
             >
               {isGenerating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

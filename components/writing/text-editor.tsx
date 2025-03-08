@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ChapterWithRelationships } from '@/lib/db/types';
+import { updateChapterContent } from '@/lib/db/chapters';
 import { 
   Bold, 
   Italic, 
@@ -36,41 +37,18 @@ interface TextEditorProps {
 }
 
 export function TextEditor({ activeChapterId, aiScribeEnabled, activeChapter, onChapterUpdate }: TextEditorProps) {
-  const [chapterContents, setChapterContents] = useState<ChapterContent[]>([
-    { 
-      id: 'chapter-1', 
-      content: 'It was a dark and stormy night. The wind howled through the trees, and the rain pounded against the windows. I sat alone in my study, contemplating the events that had led me to this moment.\n\nThe manuscript lay open on my desk, its pages yellowed with age. I had discovered it in the attic of my grandfather\'s house, hidden away in an old trunk. The story it told was incredible, almost unbelievable, and yet I knew it to be true.'
-    },
-    { 
-      id: 'section-1-1', 
-      content: 'The introduction sets the scene for our story. The protagonist discovers an old manuscript that will change their life forever.'
-    },
-    { 
-      id: 'section-1-2', 
-      content: 'In this scene, we meet the protagonist for the first time. They are sitting in their study during a storm, reading an old manuscript they found in their grandfather\'s attic.'
-    },
-    { 
-      id: 'chapter-2', 
-      content: 'The next morning dawned bright and clear, a stark contrast to the tumultuous night before. I packed the manuscript carefully in my bag and set out for the university. Professor Jenkins would know what to make of it.\n\nThe campus was quiet, most students still asleep in their dorms. I made my way to the history department, my footsteps echoing in the empty hallways.'
-    },
-    { 
-      id: 'section-2-1', 
-      content: 'The protagonist decides to seek help from Professor Jenkins, an expert in ancient manuscripts. This introduces the first conflict as the professor reveals something unexpected about the manuscript.'
-    },
-    { 
-      id: 'chapter-3', 
-      content: 'Three days later, I found myself on a plane to Istanbul. The manuscript had revealed coordinates to a location in the old city, and Professor Jenkins had insisted I go immediately.\n\n"Time is of the essence," he had said, his eyes gleaming with excitement. "If what this manuscript says is true, we could be on the verge of the greatest historical discovery of the century."'
-    }
-  ]);
-  
   const [currentContent, setCurrentContent] = useState('');
   const [wordCount, setWordCount] = useState(0);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
+  const [lastSavedContent, setLastSavedContent] = useState('');
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   
-  // Use refs instead of state to track update state without triggering re-renders
+  // Use refs to track state without triggering re-renders
   const isUpdatingRef = useRef(false);
   const lastActiveChapterIdRef = useRef<string | null>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const currentChapterIdRef = useRef<string | null>(null);
   
   // Add editor ref to control formatting with proper typing
   const editorRef = useRef<{
@@ -87,34 +65,8 @@ export function TextEditor({ activeChapterId, aiScribeEnabled, activeChapter, on
     focus: () => void;
   } | null>(null);
   
-  // Load chapter content ONLY when activeChapterId changes
-  useEffect(() => {
-    // Skip if no active chapter
-    if (!activeChapterId) {
-      setCurrentContent('');
-      setWordCount(0);
-      lastActiveChapterIdRef.current = null;
-      return;
-    }
-    
-    // Skip if we're already on this chapter (prevents content reload loops)
-    if (activeChapterId === lastActiveChapterIdRef.current && isUpdatingRef.current) {
-      return;
-    }
-    
-    // Load content from the chapter
-    const chapterContent = chapterContents.find(c => c.id === activeChapterId)?.content || '';
-    
-    // Update state
-    setCurrentContent(chapterContent);
-    setWordCount(countWords(extractPlainText(chapterContent)));
-    
-    // Update our tracking refs
-    lastActiveChapterIdRef.current = activeChapterId;
-    isUpdatingRef.current = false;
-    
-  }, [activeChapterId, chapterContents]);
-  
+  const isSampleProject = activeChapter?.projectId.startsWith('project-') ?? false;
+
   // Extract plain text from HTML content
   const extractPlainText = (html: string) => {
     if (!html) return '';
@@ -123,29 +75,112 @@ export function TextEditor({ activeChapterId, aiScribeEnabled, activeChapter, on
     return tempDiv.textContent || tempDiv.innerText || '';
   };
   
+  // Count words in text
   const countWords = (text: string) => {
     if (!text) return 0;
     return text.split(/\s+/).filter(word => word.length > 0).length;
   };
+
+  // Function to clear auto-save timer
+  const clearAutoSaveTimer = () => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+  };
+
+  // Function to save content for a specific chapter
+  const saveChapterContent = async (chapterId: string, content: string) => {
+    if (!isSampleProject && chapterId && content !== lastSavedContent) {
+      try {
+        await updateChapterContent(chapterId, content);
+        setLastSavedContent(content);
+        setLastSavedTime(new Date());
+      } catch (error) {
+        console.error('Error saving chapter content:', error);
+      }
+    }
+  };
+
+  // Save content before unmounting or switching chapters
+  useEffect(() => {
+    return () => {
+      // Save any pending changes before unmounting
+      if (currentChapterIdRef.current && currentContent !== lastSavedContent) {
+        saveChapterContent(currentChapterIdRef.current, currentContent);
+      }
+      clearAutoSaveTimer();
+    };
+  }, []);
   
-  // Content change handler - doesn't trigger the chapter load effect
+  // Handle chapter switching
+  useEffect(() => {
+    const handleChapterSwitch = async () => {
+      // Save content of previous chapter if needed
+      if (lastActiveChapterIdRef.current && currentContent !== lastSavedContent) {
+        await saveChapterContent(lastActiveChapterIdRef.current, currentContent);
+      }
+
+      // Clear the auto-save timer
+      clearAutoSaveTimer();
+
+      // Skip if no active chapter
+      if (!activeChapterId || !activeChapter) {
+        setCurrentContent('');
+        setWordCount(0);
+        lastActiveChapterIdRef.current = null;
+        currentChapterIdRef.current = null;
+        return;
+      }
+      
+      // Skip if we're already on this chapter (prevents content reload loops)
+      if (activeChapterId === lastActiveChapterIdRef.current && isUpdatingRef.current) {
+        return;
+      }
+      
+      // Load content from the active chapter
+      const chapterContent = activeChapter.content || '';
+      
+      // Update state
+      setCurrentContent(chapterContent);
+      setLastSavedContent(chapterContent);
+      setWordCount(countWords(extractPlainText(chapterContent)));
+      
+      // Update our tracking refs
+      lastActiveChapterIdRef.current = activeChapterId;
+      currentChapterIdRef.current = activeChapterId;
+      isUpdatingRef.current = false;
+    };
+
+    handleChapterSwitch();
+  }, [activeChapterId, activeChapter]);
+  
+  // Content change handler with auto-save
   const handleContentChange = (newContent: string) => {
+    const currentChapterId = currentChapterIdRef.current;
+    
+    // Don't process changes if we don't have an active chapter
+    if (!currentChapterId) return;
+
     // Set updating flag to prevent content reload
     isUpdatingRef.current = true;
     
     // Update current content and word count
     setCurrentContent(newContent);
     setWordCount(countWords(extractPlainText(newContent)));
-    
-    // Update chapter content in our local state
-    if (activeChapterId) {
-      setChapterContents(prevContents => {
-        return prevContents.map(c => 
-          c.id === activeChapterId 
-            ? { ...c, content: newContent } 
-            : c
-        );
-      });
+
+    // Only proceed with auto-save if this is not a sample project
+    if (!isSampleProject) {
+      // Clear any existing auto-save timer
+      clearAutoSaveTimer();
+
+      // Set new auto-save timer
+      autoSaveTimerRef.current = setTimeout(() => {
+        // Verify we're still on the same chapter before saving
+        if (currentChapterId === currentChapterIdRef.current) {
+          saveChapterContent(currentChapterId, newContent);
+        }
+      }, 2500); // 2.5 seconds delay
     }
   };
   
@@ -326,6 +361,9 @@ export function TextEditor({ activeChapterId, aiScribeEnabled, activeChapter, on
               handleContentChange(newContent);
             }}
             editorRef={editorRef}
+            chapterId={activeChapterId}
+            projectId={activeChapter?.projectId}
+            contentType="text"
           />
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -339,7 +377,7 @@ export function TextEditor({ activeChapterId, aiScribeEnabled, activeChapter, on
           {wordCount} words
         </div>
         <div>
-          Last saved: {new Date().toLocaleTimeString()}
+          {lastSavedTime ? `Last saved: ${lastSavedTime.toLocaleTimeString()}` : 'Not saved yet'}
         </div>
       </div>
     </div>

@@ -29,7 +29,10 @@ export interface AiEnhancedTipTapEditorProps {
   className?: string;
   placeholder?: string;
   aiScribeEnabled: boolean;
-  onAiContent?: (newContent: string) => void;
+  onAiContent?: (content: string, title?: string) => void;
+  chapterId?: string;
+  projectId?: string;
+  contentType?: 'note' | 'beat' | 'text';
   editorRef?: React.MutableRefObject<{
     toggleBold: () => void;
     toggleItalic: () => void;
@@ -53,6 +56,20 @@ interface AITransformationRequest {
   action: AIAction;
   additionalInstructions?: string;
   fullDocument?: string;
+  chapterId?: string;
+  projectId?: string;
+  contentType?: 'note' | 'beat' | 'text';
+}
+
+interface AIGenerateContentRequest {
+  type: string;
+  chapterId: string;
+  projectId: string;
+  currentContent: string;
+}
+
+interface AIGenerateContentResponse {
+  generatedContent: string;
 }
 
 export function AiEnhancedTipTapEditor({
@@ -62,6 +79,9 @@ export function AiEnhancedTipTapEditor({
   placeholder = "Start writing...",
   aiScribeEnabled,
   onAiContent,
+  chapterId,
+  projectId,
+  contentType = 'text',
   editorRef,
 }: AiEnhancedTipTapEditorProps) {
   // State to track if we're in a browser environment (for SSR compatibility)
@@ -383,7 +403,10 @@ export function AiEnhancedTipTapEditor({
         text: selectedContent,
         action: action as AIAction,
         additionalInstructions: instructions,
-        fullDocument: editor.getText()
+        fullDocument: editor.getText(),
+        chapterId,
+        projectId,
+        contentType
       });
       
       // Only proceed if editor still exists and is focused
@@ -427,43 +450,91 @@ export function AiEnhancedTipTapEditor({
       const position = editor.state.selection.from;
       
       setIsGenerating(true);
+      console.log('AI Write triggered with:', {
+        contentType,
+        chapterId,
+        projectId,
+        instructions,
+        currentContent: editor.getText().substring(0, 100) + '...'
+      });
       
       // Get Firebase functions instance
       const functions = getFunctions(getApp());
       
       // Create a callable reference to our Cloud Function
-      const transformText = httpsCallable<AITransformationRequest, { success: boolean; transformedText: string }>(
+      const generateAIContent = httpsCallable<AIGenerateContentRequest, AIGenerateContentResponse>(
         functions,
-        'transformText'
+        'generateAIContent'
       );
       
-      // Call the Cloud Function
-      const result = await transformText({
-        text: instructions || "Generate creative content",
-        action: 'expand',
-        additionalInstructions: "Generate text that can be inserted at the current cursor position.",
-        fullDocument: editor.getText()
+      // Call the Cloud Function with proper context
+      console.log('Calling generateAIContent with:', {
+        type: contentType || 'text',
+        chapterId: chapterId || '',
+        projectId: projectId || ''
+      });
+      
+      const result = await generateAIContent({
+        type: contentType || 'text',
+        chapterId: chapterId || '',
+        projectId: projectId || '',
+        currentContent: editor.getText()
+      });
+      
+      console.log('Received AI response:', {
+        success: !!result.data.generatedContent,
+        contentType,
+        responseLength: result.data.generatedContent?.length,
+        response: result.data.generatedContent
       });
       
       // Only proceed if editor still exists and is focused
-      if (editor && !editor.isDestroyed) {
-        if (result.data.success) {
-          // Position cursor at the original position first
-          editor.chain().focus().setTextSelection(position).run();
+      if (editor && !editor.isDestroyed && result.data.generatedContent) {
+        // For beats and notes, parse the title and content
+        if (contentType === 'beat' || contentType === 'note') {
+          const response = result.data.generatedContent;
+          console.log('Attempting to parse note/beat response:', response);
           
-          // Insert the content
-          editor.chain().insertContent(result.data.transformedText).run();
+          const titleMatch = response.match(/TITLE:\s*(.*)/);
+          const contentMatch = response.match(/CONTENT:\s*(.*)/);
           
-          // If a callback is provided, use it
-          if (onAiContent) {
-            onAiContent(editor.getHTML());
+          console.log('Parsed matches:', { titleMatch, contentMatch });
+          
+          if (titleMatch && contentMatch) {
+            const title = titleMatch[1].trim();
+            const content = contentMatch[1].trim();
+            
+            console.log('Successfully parsed title and content:', { title, content });
+            
+            // If we have a callback, pass both title and content
+            if (onAiContent) {
+              console.log('Calling onAiContent with:', { content, title });
+              onAiContent(content, title);
+              return;
+            }
+          } else {
+            console.warn('Failed to parse title/content from response');
           }
-        } else {
-          console.error('Failed to generate text');
         }
+        
+        // For regular text or if parsing fails, just insert the content
+        console.log('Inserting content directly into editor');
+        editor.chain().focus().setTextSelection(position).run();
+        editor.chain().insertContent(result.data.generatedContent).run();
+        
+        // If a callback is provided, use it
+        if (onAiContent) {
+          onAiContent(editor.getHTML());
+        }
+      } else {
+        console.error('No content generated or editor not available:', {
+          editorExists: !!editor,
+          editorDestroyed: editor?.isDestroyed,
+          hasContent: !!result.data.generatedContent
+        });
       }
     } catch (error) {
-      console.error('Error generating text:', error);
+      console.error('Error in handleWrite:', error);
     } finally {
       setIsGenerating(false);
     }

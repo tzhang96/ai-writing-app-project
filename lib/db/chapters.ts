@@ -353,7 +353,7 @@ export async function searchEntities(
         return {
           id: doc.id,
           type,
-          name: data.name,
+          name: data.name || '',
           metadata: {
             description: data.description,
             aliases: data.aliases || [],
@@ -382,7 +382,9 @@ export async function searchEntities(
       })
       // Filter by search term locally (case-insensitive)
       .filter(entity => {
-        const nameMatch = entity.name.toLowerCase().includes(searchTerm.toLowerCase());
+        if (!searchTerm) return true;
+        
+        const nameMatch = entity.name?.toLowerCase().includes(searchTerm.toLowerCase());
         const aliasMatch = (entity.metadata.aliases || []).some(alias => 
           alias.toLowerCase().includes(searchTerm.toLowerCase())
         );
@@ -530,4 +532,13 @@ export async function updateChapterNote(
 export async function deleteChapterNote(noteId: string): Promise<void> {
   const noteRef = doc(db, 'chapterNotes', noteId);
   await deleteDoc(noteRef);
+}
+
+// Update chapter content
+export async function updateChapterContent(chapterId: string, content: string): Promise<void> {
+  const chapterRef = doc(db, 'chapters', chapterId);
+  await updateDoc(chapterRef, {
+    content,
+    updatedAt: serverTimestamp()
+  });
 } 
