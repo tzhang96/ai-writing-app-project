@@ -18,24 +18,7 @@ import {
   type EntityField
 } from '@/lib/services/entities';
 
-const SAMPLE_LOCATIONS: Location[] = [
-  {
-    id: '1',
-    name: 'Main City',
-    description: 'The primary urban setting of your story.',
-    projectId: '', // Will be set when used
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: '2',
-    name: 'Forest',
-    description: 'A mysterious woodland area.',
-    projectId: '', // Will be set when used
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  }
-];
+const SAMPLE_LOCATIONS: Location[] = [];
 
 // Debounce helper function
 function debounce<T extends (...args: any[]) => any>(
@@ -68,17 +51,8 @@ export function WorldTab({ aiScribeEnabled }: { aiScribeEnabled: boolean }) {
           getCustomFields(activeProject.id, COLLECTIONS.locations)
         ]);
         
-        // If no locations exist, use sample locations
-        if (loadedLocations.length === 0) {
-          // Add projectId to sample locations
-          const sampleWithProject = SAMPLE_LOCATIONS.map(loc => ({
-            ...loc,
-            projectId: activeProject.id
-          }));
-          setLocations(sampleWithProject);
-        } else {
-          setLocations(loadedLocations);
-        }
+        // Set locations from what was loaded
+        setLocations(loadedLocations);
         
         // Set default custom fields if none exist
         if (loadedFields.length === 0) {
@@ -93,8 +67,8 @@ export function WorldTab({ aiScribeEnabled }: { aiScribeEnabled: boolean }) {
         }
       } catch (error) {
         console.error('Error loading locations:', error);
-        // On error, use sample data
-        setLocations(SAMPLE_LOCATIONS);
+        // On error, set empty locations
+        setLocations([]);
         setCustomFields([
           { id: 'sample-1', key: 'climate', label: 'Climate', type: 'input' },
           { id: 'sample-2', key: 'population', label: 'Population', type: 'input' },

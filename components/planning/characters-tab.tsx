@@ -34,32 +34,7 @@ function debounce<T extends (...args: any[]) => any>(
 }
 
 // Sample character data to show when no characters exist
-export const SAMPLE_CHARACTERS: Character[] = [
-  {
-    id: 'sample-1',
-    projectId: '',
-    name: 'Sarah Chen',
-    description: 'A brilliant computer scientist who discovers an AI that becomes sentient. She struggles with the ethical implications of her creation while trying to protect it from those who would abuse its power.',
-    role: 'Protagonist',
-    age: '28',
-    occupation: 'AI Researcher',
-    goals: 'To ensure AI development benefits humanity while preventing its misuse',
-    createdAt: new Date(),
-    updatedAt: new Date()
-  },
-  {
-    id: 'sample-2',
-    projectId: '',
-    name: 'Dr. Marcus Webb',
-    description: 'A veteran AI ethicist who becomes both a mentor and potential antagonist to Sarah. His past experiences with failed AI projects make him deeply skeptical of her work.',
-    role: 'Mentor/Antagonist',
-    age: '55',
-    occupation: 'Ethics Professor',
-    goals: 'To prevent what he sees as dangerous AI development',
-    createdAt: new Date(),
-    updatedAt: new Date()
-  }
-];
+export const SAMPLE_CHARACTERS: Character[] = [];
 
 export function CharactersTab({ aiScribeEnabled }: { aiScribeEnabled: boolean }) {
   const { activeProject } = useProjects();
@@ -114,17 +89,8 @@ export function CharactersTab({ aiScribeEnabled }: { aiScribeEnabled: boolean })
           getCustomFields(activeProject.id, COLLECTIONS.characters)
         ]);
         
-        // If no characters exist, use sample characters
-        if (loadedCharacters.length === 0) {
-          // Add projectId to sample characters
-          const sampleWithProject = SAMPLE_CHARACTERS.map(char => ({
-            ...char,
-            projectId: activeProject.id
-          }));
-          setCharacters(sampleWithProject);
-        } else {
-          setCharacters(loadedCharacters);
-        }
+        // Set the characters from what was loaded
+        setCharacters(loadedCharacters);
         
         // Set default custom fields if none exist
         if (loadedFields.length === 0) {

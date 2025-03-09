@@ -19,53 +19,7 @@ import {
   type Event
 } from '@/lib/services/entities';
 
-const SAMPLE_EVENTS: Event[] = [
-  { 
-    id: '1', 
-    title: 'Introduction', 
-    description: 'The beginning of your story...', 
-    sequence: 1,
-    projectId: '', // Will be set when used
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  { 
-    id: '2', 
-    title: 'Rising Action', 
-    description: 'Conflict begins to develop...', 
-    sequence: 2,
-    projectId: '', // Will be set when used
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  { 
-    id: '3', 
-    title: 'Climax', 
-    description: 'The turning point of your story...', 
-    sequence: 3,
-    projectId: '', // Will be set when used
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  { 
-    id: '4', 
-    title: 'Falling Action', 
-    description: 'Events after the climax...', 
-    sequence: 4,
-    projectId: '', // Will be set when used
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  { 
-    id: '5', 
-    title: 'Resolution', 
-    description: 'The conclusion of your story...', 
-    sequence: 5,
-    projectId: '', // Will be set when used
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  }
-];
+const SAMPLE_EVENTS: Event[] = [];
 
 interface PlotPointCardProps { 
   plotPoint: Event;
@@ -211,7 +165,6 @@ export function PlotTab({ aiScribeEnabled }: PlotTabProps) {
   const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const hasAttemptedSampleSave = useRef(false);
 
   // Load events
   useEffect(() => {
@@ -222,53 +175,15 @@ export function PlotTab({ aiScribeEnabled }: PlotTabProps) {
         setIsLoading(true);
         const loadedEvents = await getEvents(activeProject.id);
         
-        // If no events exist and we haven't tried to save samples yet, create sample events in Firestore
-        if (loadedEvents.length === 0 && !hasAttemptedSampleSave.current) {
-          hasAttemptedSampleSave.current = true; // Mark that we've attempted to save samples
-          try {
-            const sampleWithProject = SAMPLE_EVENTS.map(event => ({
-              ...event,
-              projectId: activeProject.id
-            }));
-            
-            // Create all sample events in Firestore
-            const createdEvents = await Promise.all(
-              sampleWithProject.map(event => 
-                addEvent(activeProject.id, {
-                  title: event.title,
-                  description: event.description,
-                  sequence: event.sequence,
-                })
-              )
-            );
-            
-            setEvents(createdEvents);
-          } catch (error) {
-            console.error('Error creating sample events:', error);
-            // If saving samples fails, use them locally
-            setEvents(SAMPLE_EVENTS.map(event => ({
-              ...event,
-              projectId: activeProject.id
-            })));
-            toast({
-              title: "Error",
-              description: "Failed to save sample plot points. Using them locally instead.",
-              variant: "destructive"
-            });
-          }
-        } else {
-          setEvents(loadedEvents);
-        }
+        // Just set events to what was loaded, no sample data
+        setEvents(loadedEvents);
       } catch (error) {
         console.error('Error loading events:', error);
-        // On error, use sample data locally only
-        setEvents(SAMPLE_EVENTS.map(event => ({
-          ...event,
-          projectId: activeProject.id
-        })));
+        // On error, set empty array
+        setEvents([]);
         toast({
           title: "Error",
-          description: "Failed to load plot points. Using sample data instead.",
+          description: "Failed to load plot points.",
           variant: "destructive"
         });
       } finally {
