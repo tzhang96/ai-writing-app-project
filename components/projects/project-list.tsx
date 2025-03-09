@@ -22,38 +22,12 @@ import { Plus, MoreVertical, Pencil, Trash2, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { ProjectHeader } from '@/components/projects/project-header';
 import { ProjectDialog, ProjectFormData } from '@/components/projects/project-dialog';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useFirebase } from '@/lib/firebase-context';
 import { createProject, deleteProject, updateProject, getAllProjects } from '@/lib/services/projects';
 import { Project } from '@/lib/project-context';
 import { useToast } from '@/hooks/use-toast';
 import { slugify } from '@/lib/utils';
-
-export const SAMPLE_PROJECTS: Project[] = [
-  {
-    id: 'project-1',
-    title: 'The Lost Kingdom',
-    description: 'A fantasy novel about a hidden kingdom discovered by a young explorer.',
-    coverImage: 'https://images.unsplash.com/photo-1518674660708-0e2c0473e68e?q=80&w=2574&auto=format&fit=crop',
-    createdAt: new Date('2023-12-15'),
-    updatedAt: new Date('2023-12-15'),
-  },
-  {
-    id: 'project-2',
-    title: 'Silicon Valley: Uncovered',
-    description: 'A tech thriller exploring the dark side of startup culture.',
-    coverImage: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=2670&auto=format&fit=crop',
-    createdAt: new Date('2024-01-20'),
-    updatedAt: new Date('2024-01-20'),
-  },
-  {
-    id: 'project-3',
-    title: 'Echoes of Tomorrow',
-    description: 'A sci-fi adventure set in a post-apocalyptic world.',
-    coverImage: 'https://images.unsplash.com/photo-1532453288672-3a27e9be9efd?q=80&w=2564&auto=format&fit=crop',
-    createdAt: new Date('2024-02-10'),
-    updatedAt: new Date('2024-02-10'),
-  }
-];
 
 export function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -61,9 +35,11 @@ export function ProjectList() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const { toast } = useToast();
   
-  // Load projects from Firestore and combine with sample projects
+  // Load projects from Firestore
   useEffect(() => {
     const loadProjects = async () => {
       setIsLoading(true);
@@ -72,23 +48,15 @@ export function ProjectList() {
       try {
         const firebaseProjects = await getAllProjects();
         console.log('Loaded projects:', firebaseProjects);
-        
-        // Combine Firebase projects with sample projects
-        const combinedProjects = [
-          ...firebaseProjects,
-          ...SAMPLE_PROJECTS.filter(sample => 
-            !firebaseProjects.some(real => real.title === sample.title)
-          )
-        ];
-        setProjects(combinedProjects);
+        setProjects(firebaseProjects);
       } catch (error) {
         console.error('Error loading projects:', error);
         toast({
           title: 'Error',
-          description: 'Failed to load projects. Using sample projects instead.',
+          description: 'Failed to load projects.',
           variant: 'destructive',
         });
-        setProjects(SAMPLE_PROJECTS);
+        setProjects([]);
       } finally {
         setIsLoading(false);
       }
@@ -136,9 +104,19 @@ export function ProjectList() {
     e.preventDefault();
     e.stopPropagation();
     
+    const project = projects.find(p => p.id === id);
+    if (project) {
+      setProjectToDelete(project);
+      setDeleteDialogOpen(true);
+    }
+  };
+  
+  const confirmDeleteProject = async () => {
+    if (!projectToDelete) return;
+    
     try {
-      await deleteProject(id);
-      setProjects(projects.filter(project => project.id !== id));
+      await deleteProject(projectToDelete.id);
+      setProjects(projects.filter(project => project.id !== projectToDelete.id));
       toast({
         title: 'Success',
         description: 'Project deleted successfully.',
@@ -150,6 +128,8 @@ export function ProjectList() {
         description: 'Failed to delete project. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setProjectToDelete(null);
     }
   };
   
@@ -333,6 +313,17 @@ export function ProjectList() {
           mode="edit"
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Project"
+        description={`Are you sure you want to delete "${projectToDelete?.title}"? This action cannot be undone.`}
+        onConfirm={confirmDeleteProject}
+        confirmText="Delete"
+        variant="destructive"
+      />
     </div>
   );
 } 

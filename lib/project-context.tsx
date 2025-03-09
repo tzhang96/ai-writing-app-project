@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from 'react';
-import { SAMPLE_PROJECTS } from '@/components/projects/project-list';
 import { getProject } from './services/projects';
 
 export interface Project {
@@ -30,13 +29,6 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   const [activeProject, setActiveProject] = React.useState<Project | null>(null);
 
   const getProjectById = async (id: string): Promise<Project | null> => {
-    // First check sample projects
-    const sampleProject = SAMPLE_PROJECTS.find(p => p.id === id);
-    if (sampleProject) {
-      return sampleProject;
-    }
-
-    // Then try to get from Firebase
     try {
       const project = await getProject(id);
       return project;
@@ -53,4 +45,10 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export const useProjects = () => React.useContext(ProjectsContext); 
+export const useProjects = () => {
+  const context = React.useContext(ProjectsContext);
+  if (!context) {
+    throw new Error('useProjects must be used within a ProjectsProvider');
+  }
+  return context;
+}; 
