@@ -29,6 +29,9 @@ import { Project } from '@/lib/project-context';
 import { useToast } from '@/hooks/use-toast';
 import { slugify } from '@/lib/utils';
 
+// Keep this export but with an empty array to maintain compatibility
+export const SAMPLE_PROJECTS: Project[] = [];
+
 export function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
