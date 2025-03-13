@@ -110,9 +110,9 @@ export function WritingMode({ chatSidebarCollapsed, projectId, aiScribeEnabled }
       <ResizablePanelGroup direction="horizontal">
         {/* Left Sidebar (Chapters) */}
         <ResizablePanel 
-          defaultSize={isChapterDetailView ? 35 : 25} 
-          minSize={20}
-          maxSize={isChapterDetailView ? 45 : 35}
+          defaultSize={isChapterDetailView ? 30 : 20} 
+          minSize={15}
+          maxSize={isChapterDetailView ? 40 : 30}
           collapsible={true}
           collapsedSize={0}
           onCollapse={() => setLeftSidebarCollapsed(true)}
@@ -134,7 +134,7 @@ export function WritingMode({ chatSidebarCollapsed, projectId, aiScribeEnabled }
         <ResizableHandle withHandle />
         
         {/* Main Editor Area */}
-        <ResizablePanel defaultSize={75}>
+        <ResizablePanel defaultSize={60}>
           <TextEditor 
             activeChapterId={activeChapterId} 
             activeChapter={activeChapter}
