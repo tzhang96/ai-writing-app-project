@@ -112,7 +112,7 @@ export async function getAllProjects(): Promise<Project[]> {
   try {
     const projectsCollection = getProjectsCollection();
     const querySnapshot = await getDocs(projectsCollection);
-    return querySnapshot.docs.map(doc => {
+    const projects = querySnapshot.docs.map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -124,6 +124,9 @@ export async function getAllProjects(): Promise<Project[]> {
         updatedAt: data.updatedAt?.toDate() || data.createdAt?.toDate(),
       };
     });
+    
+    // Sort projects by lastEdited in descending order (most recent first)
+    return projects.sort((a, b) => b.lastEdited.getTime() - a.lastEdited.getTime());
   } catch (error) {
     console.error('Error getting projects:', error);
     throw error;
