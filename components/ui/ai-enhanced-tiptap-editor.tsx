@@ -66,11 +66,26 @@ interface AIGenerateContentRequest {
   chapterId: string;
   projectId: string;
   currentContent: string;
+  additionalInstructions?: string;
 }
 
 interface AIGenerateContentResponse {
   generatedContent: string;
 }
+
+// Function to get selection coordinates
+const getSelectionCoords = () => {
+  const selection = window.getSelection();
+  if (selection && selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    return {
+      top: rect.bottom,
+      left: rect.right
+    };
+  }
+  return null;
+};
 
 export function AiEnhancedTipTapEditor({
   value,
@@ -92,6 +107,11 @@ export function AiEnhancedTipTapEditor({
   
   // Track the last set content to avoid update loops
   const [lastSetContent, setLastSetContent] = useState(value);
+  
+  // State for selection and popup
+  const [selectedText, setSelectedText] = useState('');
+  const [popupVisible, setPopupVisible] = useState(false);
+  const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
   
   // Reference to the editor container for positioning popups
   const editorContainerRef = useRef<HTMLDivElement>(null);
@@ -123,14 +143,30 @@ export function AiEnhancedTipTapEditor({
     ],
     content: value,
     autofocus: false, // Don't autofocus initially
-    onUpdate: () => {
-      // Intentionally empty - we use the transaction handler
+    onUpdate: ({ editor, transaction }) => {
+      // Check if this is a delete operation
+      const isDelete = transaction.steps.some(step => {
+        const stepJson = step.toJSON();
+        return stepJson.stepType === 'replace' && (!stepJson.slice || stepJson.slice.content?.length === 0);
+      });
+      
+      if (isDelete && editor) {
+        clearAllHighlights(editor);
+        selectedRange.current = null;
+      }
     },
     editorProps: {
       attributes: {
         class: 'prose prose-sm sm:prose-base focus:outline-none w-full max-w-none p-4',
       },
       handleKeyDown: (view, event) => {
+        // Handle delete and backspace keys
+        if (event.key === 'Delete' || event.key === 'Backspace') {
+          if (editor) {
+            clearAllHighlights(editor);
+            selectedRange.current = null;
+          }
+        }
         // Let all key events pass through to the editor
         return false;
       },
@@ -240,8 +276,8 @@ export function AiEnhancedTipTapEditor({
   // Initialize AI Scribe functionality
   const {
     showAiPopup,
-    selectedText,
-    popupPosition,
+    selectedText: aiScribeSelectedText,
+    popupPosition: aiScribePopupPosition,
     closePopup: originalClosePopup,
     selectionInfo
   } = useAiScribe(simulatedTextareaRef as React.RefObject<HTMLTextAreaElement>, aiScribeEnabled);
@@ -334,52 +370,36 @@ export function AiEnhancedTipTapEditor({
 
     // Handle mouseup to detect text selection for AI Scribe
     const handleEditorMouseUp = (event: MouseEvent) => {
-      // Skip if clicking on popups
-      const target = event.target as Node;
-      const scribePopup = document.querySelector('.scribe-popup');
-      const writePopup = document.querySelector('.write-popup');
-      const isPopupClick = scribePopup?.contains(target) || writePopup?.contains(target);
-
-      if (isPopupClick) return;
-
-      // Show popup for selection after short delay to ensure selection is complete
-      setTimeout(() => {
-        if (!editor.state.selection.empty) {
-          console.log('Selection detected - showing AI Scribe popup');
+      if (!editor) return;
+      
+      const selection = editor.state.selection;
+      const hasSelection = selection.from !== selection.to;
+      
+      // Clear highlights if there's no selection
+      if (!hasSelection) {
+        clearAllHighlights(editor);
+      }
+      
+      // Only show popup if there's a selection and AI is enabled
+      if (hasSelection && aiScribeEnabled) {
+        const { from, to } = selection;
+        const selectedText = editor.state.doc.textBetween(from, to, ' ');
+        
+        if (selectedText.trim()) {
+          setSelectedText(selectedText);
+          setPopupVisible(true);
           
-          // Store the selection range for highlighting
-          const { from, to } = editor.state.selection;
-          selectedRange.current = { from, to };
-          
-          // Update the simulated textarea value with the selected text
-          const selectedContent = editor.state.doc.textBetween(from, to, ' ');
-          if (simulatedTextareaRef.current) {
-            simulatedTextareaRef.current.value = selectedContent;
-            simulatedTextareaRef.current.selectionStart = 0;
-            simulatedTextareaRef.current.selectionEnd = selectedContent.length;
-          }
-          
-          // Calculate popup position based on selection
-          const selection = window.getSelection();
-          if (selection && selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            const rect = range.getBoundingClientRect();
-            
-            // Trigger the simulated textarea event to show the popup
-            if (simulatedTextareaRef.current) {
-              const mouseEvent = new MouseEvent('mouseup', {
-                bubbles: true,
-                cancelable: true,
-                view: window,
-                clientX: rect.right,
-                clientY: rect.bottom
-              });
-              
-              simulatedTextareaRef.current.dispatchEvent(mouseEvent);
+          // Position the popup
+          if (editorContainerRef.current) {
+            const coords = getSelectionCoords();
+            if (coords) {
+              setPopupPosition({ top: coords.top, left: coords.left });
             }
           }
         }
-      }, 10);
+      } else {
+        setPopupVisible(false);
+      }
     };
 
     // Handle click to detect cursor position for AI Write
@@ -590,14 +610,16 @@ export function AiEnhancedTipTapEditor({
       console.log('Calling generateAIContent with:', {
         type: contentType || 'text',
         chapterId: chapterId || '',
-        projectId: projectId || ''
+        projectId: projectId || '',
+        instructions
       });
       
       const result = await generateAIContent({
         type: contentType || 'text',
         chapterId: chapterId || '',
         projectId: projectId || '',
-        currentContent: editor.getText()
+        currentContent: editor.getText(),
+        instructions
       });
       
       console.log('Received AI response:', {
