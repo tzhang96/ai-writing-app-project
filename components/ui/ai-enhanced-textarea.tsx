@@ -359,25 +359,6 @@ export const AiEnhancedTextarea = React.forwardRef<HTMLTextAreaElement, AiEnhanc
           {...props}
         />
         
-        {aiScribeEnabled && (
-          <div className="absolute right-2 bottom-2 flex space-x-1">
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 p-0"
-              disabled={isGenerating}
-              onClick={handleGenerateContent}
-            >
-              {isGenerating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Wand2 className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-        )}
-        
         {renderPopups()}
       </div>
     );
