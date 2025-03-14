@@ -197,4 +197,41 @@
 /* Custom Styling for Selection */
 .tiptap-editor-container .ProseMirror ::selection {
   background-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Dark mode specific styles */
+.dark .tiptap-editor-container .ProseMirror {
+  color: rgb(229, 231, 235); /* Bright text for better readability */
+}
+
+.dark .tiptap-editor-container .ProseMirror h1,
+.dark .tiptap-editor-container .ProseMirror h2,
+.dark .tiptap-editor-container .ProseMirror h3 {
+  color: rgb(243, 244, 246); /* Even brighter for headings */
+}
+
+.dark .tiptap-editor-container .ProseMirror p.is-editor-empty:first-child::before {
+  color: rgb(156, 163, 175); /* Brighter placeholder text */
+}
+
+.dark .tiptap-editor-container .ProseMirror .highlight-gray {
+  background-color: rgba(156, 163, 175, 0.2); /* Lighter highlight in dark mode */
+}
+
+.dark .tiptap-editor-container .ProseMirror .highlight-processing {
+  background-color: rgba(156, 163, 175, 0.2);
+  border-bottom: 1px dashed rgb(156, 163, 175);
+}
+
+.dark .tiptap-editor-container .ProseMirror .highlight-result {
+  background-color: rgba(132, 204, 22, 0.3); /* Slightly brighter success highlight */
+}
+
+.dark .tiptap-editor-container .ProseMirror .highlight-error {
+  background-color: rgba(239, 68, 68, 0.3); /* Slightly brighter error highlight */
+}
+
+.dark .tiptap-editor-container .ProseMirror ul li,
+.dark .tiptap-editor-container .ProseMirror ol li {
+  color: rgb(229, 231, 235); /* Bright text for list items */
 } 
